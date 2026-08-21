@@ -243,9 +243,10 @@ class DoctavianRenderer:
             raise AdapterError(f"Doctavian {method} {path} failed: {exc}") from exc
         if response.status_code == 401:
             raise AdapterError(
-                "Doctavian rejected the credentials. A 401 naming ApiKeyInvalid means the "
-                "x-api-key is not the Documents key; any other 401 means the bearer token "
-                "is missing or expired."
+                "Doctavian rejected the credentials. ApiKeyInvalid means the gateway does "
+                "not recognise the x-api-key, which it reports identically for a key that "
+                "is merely the wrong area and for one that was never provisioned; omitting "
+                "the header instead gives ApiKeyNotFound. Any other 401 is the bearer token."
             )
         if not response.is_success:
             raise AdapterError(
