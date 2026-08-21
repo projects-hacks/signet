@@ -37,6 +37,7 @@ def probe_live(settings: Settings) -> list[tuple[str, str, str]]:
     from signet.adapters.namecom import NameComClient, NameComRegistrar
     from signet.adapters.nutrient import NutrientClient
     from signet.adapters.rdap import RdapRegistrationData
+    from signet.adapters.xano import XanoRecordStore
 
     results: list[tuple[str, str, str]] = []
 
@@ -74,6 +75,14 @@ def probe_live(settings: Settings) -> list[tuple[str, str, str]]:
             results.append(("Nutrient", OK, "minted a scoped token"))
         except AdapterError as exc:
             results.append(("Nutrient", FAILED, str(exc)[:70]))
+
+    if settings.xano.configured:
+        base_url, api_key = settings.xano.values
+        try:
+            XanoRecordStore(base_url, api_key).issuer("connectivity-probe.invalid")
+            results.append(("Xano", OK, "the API group answered and the key was accepted"))
+        except (AdapterError, ValueError) as exc:
+            results.append(("Xano", FAILED, str(exc)[:70]))
 
     return results
 
