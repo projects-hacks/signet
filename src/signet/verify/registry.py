@@ -1,0 +1,32 @@
+"""Wiring the default check set.
+
+Kept apart from the pipeline so composition is one readable list rather than
+constructor arguments threaded through a class.
+"""
+
+from __future__ import annotations
+
+from datetime import date
+
+from signet.ports.dns import DnsResolver
+from signet.ports.registry import RegistrationData
+from signet.ports.store import RecordStore
+from signet.verify.checks import Check
+from signet.verify.checks.domain_age import DomainAgeCheck
+from signet.verify.checks.duplicate import DuplicateCheck
+from signet.verify.checks.identity import IdentityCheck
+from signet.verify.checks.signature import SignatureCheck
+
+
+def default_checks(
+    resolver: DnsResolver,
+    store: RecordStore,
+    registrations: RegistrationData,
+    today: date,
+) -> tuple[Check, ...]:
+    return (
+        SignatureCheck(resolver),
+        IdentityCheck(store),
+        DuplicateCheck(store),
+        DomainAgeCheck(registrations, today),
+    )
