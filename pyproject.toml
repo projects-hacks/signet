@@ -1,0 +1,74 @@
+[project]
+name = "signet"
+version = "0.1.0"
+description = "Proof of origin for documents, anchored to the issuer's own domain in DNS."
+readme = "README.md"
+requires-python = ">=3.12"
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+authors = [{ name = "Rajeev Chaurasia", email = "Rajeevchaurasia.dev@gmail.com" }]
+keywords = ["document-authenticity", "provenance", "dns", "ed25519", "fraud-detection"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Security :: Cryptography",
+    "Typing :: Typed",
+]
+dependencies = [
+    "cryptography>=44.0",
+    "dnspython>=2.7",
+    "httpx>=0.28",
+    "qrcode>=8.0",
+]
+
+[project.scripts]
+signet = "signet.cli:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3",
+    "pytest-cov>=6.0",
+    "hypothesis>=6.100",
+    "mypy>=1.13",
+    "ruff>=0.8",
+    "pre-commit>=4.0",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B", "SIM", "RUF", "TID"]
+
+[tool.ruff.lint.flake8-tidy-imports.banned-api]
+# Dependency inversion, enforced. The domain must never reach a vendor directly.
+"signet.adapters".msg = "core, ports and verify import from signet.ports only (ADR 0006)."
+
+[tool.mypy]
+strict = true
+python_version = "3.12"
+files = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+# Fakes are imported as tests.fakes, so the repo root has to be importable.
+pythonpath = ["."]
+
+[tool.coverage.run]
+source = ["signet"]
+branch = true
+
+[tool.coverage.report]
+skip_covered = false
+# Mirrors --cov-fail-under in ci.yml so local runs agree with the gate.
+fail_under = 80
