@@ -4,9 +4,10 @@ The pipeline finds the mark, runs every check, and hands the signals to decide()
 It contains no judgement of its own: adding or removing a signal changes the
 registry, never this module.
 
-Extraction is deliberately not on the path to a certified verdict. The mark
-carries everything layer one needs, so a document that extracts badly still
-verifies. Extraction only supplies the mark when the caller did not scan it.
+Mark reading is deliberately not extraction. Nutrient's json-content build has
+no barcode option, so the code is decoded locally. That also keeps a certified
+verdict off the extraction path entirely: a document that extracts badly still
+verifies, because the mark carries everything layer one needs.
 """
 
 from __future__ import annotations
@@ -17,7 +18,7 @@ from dataclasses import dataclass
 from signet.core.mark import Mark, decode_mark
 from signet.core.verdict import Decision, decide
 from signet.errors import AdapterError, MarkError
-from signet.ports.documents import DocumentExtractor
+from signet.ports.documents import MarkReader
 from signet.ports.store import RecordStore
 from signet.verify.checks import Check
 from signet.verify.context import VerificationContext
@@ -38,11 +39,11 @@ class VerificationPipeline:
         self,
         checks: Sequence[Check],
         store: RecordStore,
-        extractor: DocumentExtractor | None = None,
+        mark_reader: MarkReader | None = None,
     ) -> None:
         self._checks = tuple(checks)
         self._store = store
-        self._extractor = extractor
+        self._mark_reader = mark_reader
 
     def run(self, request: VerificationRequest) -> Decision:
         mark = self._find_mark(request)
@@ -70,7 +71,7 @@ class VerificationPipeline:
         return decision
 
     def _find_mark(self, request: VerificationRequest) -> Mark | None:
-        """Prefer a mark the caller scanned; fall back to extraction.
+        """Prefer a mark the caller scanned; fall back to reading the document.
 
         A mark that fails to decode is treated as absent rather than fatal, so a
         smudged code degrades to the corroboration path instead of an error page.
@@ -78,11 +79,9 @@ class VerificationPipeline:
         candidates: list[str] = []
         if request.mark_text:
             candidates.append(request.mark_text)
-        elif self._extractor is not None:
+        elif self._mark_reader is not None:
             try:
-                candidates.extend(
-                    self._extractor.extract(request.content, request.media_type).marks
-                )
+                candidates.extend(self._mark_reader.read_marks(request.content, request.media_type))
             except AdapterError:
                 return None
 

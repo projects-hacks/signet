@@ -1,8 +1,12 @@
 """Reading documents and producing them.
 
-Extraction never gates a certified verdict: the mark carries everything the
-signature check needs, so a document that extracts badly still verifies. These
-feed the fidelity check and the unsigned path.
+Extraction never gates a certified verdict. The mark carries everything the
+signature check needs, so a document that extracts badly still verifies.
+Extraction feeds the fidelity check, which asks whether the paper says what the
+signature says, and the unsigned path, where confidence decides who reviews it.
+
+Mark reading is a separate port because it is a separate problem. Nutrient's
+extraction has no barcode option, so the code has to be decoded locally.
 """
 
 from __future__ import annotations
@@ -13,10 +17,25 @@ from typing import Protocol
 
 
 @dataclass(frozen=True, slots=True)
+class BoundingBox:
+    left: float
+    top: float
+    width: float
+    height: float
+
+
+@dataclass(frozen=True, slots=True)
 class ExtractedField:
     """One value with the evidence behind it.
 
-    The box drives the reviewer straight to the disputed region, so a human
+    data_type is the extractor's own classification. Nutrient types IBAN, BIC,
+    Currency, CreditCard and SSN natively, which is most of what we care about
+    on a document that moves money.
+
+    confidence is normalised to 0.0 to 1.0 here. Nutrient reports 0 to 100, and
+    a check comparing against 0.8 should not have to know that.
+
+    box drives the reviewer straight to the disputed region, so a human
     adjudicates one number instead of reading a whole document.
     """
 
@@ -24,23 +43,34 @@ class ExtractedField:
     value: str
     confidence: float
     page: int
-    box: tuple[float, float, float, float] | None
+    data_type: str | None = None
+    box: BoundingBox | None = None
 
 
 @dataclass(frozen=True, slots=True)
 class Extraction:
     fields: tuple[ExtractedField, ...]
-    marks: tuple[str, ...]
 
     def by_name(self) -> Mapping[str, ExtractedField]:
         return {field.name: field for field in self.fields}
+
+    def of_type(self, data_type: str) -> tuple[ExtractedField, ...]:
+        return tuple(field for field in self.fields if field.data_type == data_type)
 
 
 class DocumentExtractor(Protocol):
     def extract(self, content: bytes, media_type: str) -> Extraction: ...
 
 
+class MarkReader(Protocol):
+    def read_marks(self, content: bytes, media_type: str) -> tuple[str, ...]: ...
+
+
 class DocumentRenderer(Protocol):
     def render(
         self, document_class: str, fields: Mapping[str, str], mark: str, locator: str
     ) -> bytes: ...
+
+
+class DocumentRedactor(Protocol):
+    def redact(self, content: bytes, criteria: str) -> bytes: ...
