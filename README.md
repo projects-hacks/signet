@@ -35,9 +35,21 @@ what Signet does not do.
 git clone https://github.com/rajeev-chaurasia/signet
 cd signet
 cp .env.example .env      # fixtures are on by default, so no keys are needed yet
+brew install zbar         # or: apt install libzbar0
 make setup
 make test
 ```
+
+`zbar` is not optional in practice. OpenCV ships a QR decoder and it is not
+reliable at our payload sizes: measured on our own marks it decoded a 195
+character one at every print size and failed on a 197 character one of nearly
+identical content. zbar decoded every case we tried, to 400 characters. The
+reader falls back to OpenCV when zbar is absent, so nothing breaks, but the
+fallback is the weaker path.
+
+On macOS the dynamic loader reads `DYLD_LIBRARY_PATH` when the process starts,
+so Homebrew's lib directory has to be on it before Python runs. The Makefile
+does that; if you invoke the CLI directly, export it yourself.
 
 `make test` runs entirely offline against in-memory fakes. If it ever needs the
 network, a vendor has leaked into the domain.
@@ -62,6 +74,15 @@ dig +short TXT _signet.<issuer-domain>
 | `make gate` | Week one gate scripts against live APIs |
 | `make demo` | Seed the demo issuer and documents |
 | `make verify FILE=path` | Run one document through the pipeline |
+
+## Try it without any credentials
+
+```bash
+make demo-loop
+```
+
+Generates a key, prints the DNS record it would publish, signs a receipt, draws
+the mark, and verifies it. Everything except the DNS lookup works offline.
 
 ## Layout
 

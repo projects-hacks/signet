@@ -21,6 +21,9 @@ classifiers = [
 dependencies = [
     "cryptography>=44.0",
     "httpx>=0.28",
+    "opencv-python-headless>=5.0.0.93",
+    "pillow>=12.3.0",
+    "pyzbar>=0.1.9",
     "qrcode>=8.0",
 ]
 
@@ -39,6 +42,7 @@ dev = [
     "mypy>=1.13",
     "ruff>=0.8",
     "pre-commit>=4.0",
+    "types-qrcode>=8.2.0.20260518",
 ]
 
 [tool.ruff]

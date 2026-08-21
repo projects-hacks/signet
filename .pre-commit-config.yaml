@@ -2,8 +2,12 @@ repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v5.0.0
     hooks:
+      # xano/ is pulled from the workspace and has to stay byte-identical to
+      # what Xano generated, or every pull shows diffs we did not make.
       - id: trailing-whitespace
+        exclude: ^xano/
       - id: end-of-file-fixer
+        exclude: ^xano/
       - id: check-yaml
       - id: check-toml
       - id: check-added-large-files
