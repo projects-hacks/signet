@@ -31,11 +31,41 @@ def load_dotenv(path: Path) -> None:
         os.environ.setdefault(key.strip(), value.strip())
 
 
+def _probe_page() -> bytes:
+    """The smallest real PDF that carries a readable identifier."""
+    text = b"BT /F1 14 Tf 60 720 Td (Signet probe) Tj 0 -28 Td (Invoice PROBE-1) Tj ET"
+    objects = [
+        b"<< /Type /Catalog /Pages 2 0 R >>",
+        b"<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+        b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] "
+        b"/Resources << /Font << /F1 5 0 R >> >> /Contents 4 0 R >>",
+        b"<< /Length %d >>\nstream\n" % len(text) + text + b"\nendstream",
+        b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
+    ]
+    out = bytearray(b"%PDF-1.4\n")
+    offsets = []
+    for index, obj in enumerate(objects, 1):
+        offsets.append(len(out))
+        out += b"%d 0 obj\n" % index + obj + b"\nendobj\n"
+    start = len(out)
+    out += b"xref\n0 %d\n0000000000 65535 f \n" % (len(objects) + 1)
+    for offset in offsets:
+        out += b"%010d 00000 n \n" % offset
+    out += b"trailer\n<< /Size %d /Root 1 0 R >>\nstartxref\n%d\n%%%%EOF\n" % (
+        len(objects) + 1,
+        start,
+    )
+    return bytes(out)
+
+
+_PROBE_PDF = _probe_page()
+
+
 def probe_live(settings: Settings) -> list[tuple[str, str, str]]:
     """Call the services whose credentials are present. Read-only calls only."""
     from signet.adapters.doctavian import DoctavianRenderer
     from signet.adapters.namecom import NameComClient, NameComRegistrar
-    from signet.adapters.nutrient import NutrientClient
+    from signet.adapters.nutrient import NutrientClient, NutrientExtractor
     from signet.adapters.rdap import RdapRegistrationData
     from signet.adapters.xano import XanoRecordStore
 
@@ -71,8 +101,12 @@ def probe_live(settings: Settings) -> list[tuple[str, str, str]]:
 
     if settings.nutrient.configured:
         try:
-            NutrientClient(settings.nutrient.values[0]).post("/tokens", json={"expirationTime": 60})
-            results.append(("Nutrient", OK, "minted a scoped token"))
+            # A real extraction, because the failure worth catching is an entitlement
+            # one and only the endpoint we depend on can report that honestly.
+            extractor = NutrientExtractor(NutrientClient(settings.nutrient.values[0]))
+            found = extractor.extract(_PROBE_PDF, "application/pdf").by_name()
+            read = found["id"].value if "id" in found else "nothing"
+            results.append(("Nutrient", OK, f"extracted {read} from a probe page"))
         except AdapterError as exc:
             results.append(("Nutrient", FAILED, str(exc)[:70]))
 
