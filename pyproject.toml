@@ -52,6 +52,15 @@ select = ["E", "F", "W", "I", "UP", "B", "SIM", "RUF", "TID"]
 # Dependency inversion, enforced. The domain must never reach a vendor directly.
 "signet.adapters".msg = "core, ports and verify import from signet.ports only (ADR 0006)."
 
+[tool.ruff.lint.per-file-ignores]
+# Adapters are the vendor layer, and the composition root and its tests are the
+# places allowed to see it. The ban exists to protect core, ports, verify and issue.
+"src/signet/adapters/**" = ["TID251"]
+"src/signet/cli.py" = ["TID251"]
+"src/signet/api/**" = ["TID251"]
+"tests/**" = ["TID251"]
+"scripts/**" = ["TID251"]
+
 [tool.mypy]
 strict = true
 python_version = "3.12"
