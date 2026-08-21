@@ -4,7 +4,7 @@ Templates carry the branching, so one template handles every shape of a document
 class and the payload we sign is produced from a verified record rather than
 typed by anyone. That is why generation sits on the issuing path at all.
 
-Three things about their model shape this adapter.
+Four things about their model shape this adapter.
 
 Generation is not one call. Data is uploaded as a file, generation returns a URN
 rather than bytes, and the document is fetched separately. So a render is three
@@ -18,7 +18,11 @@ Authorization tab, and x-api-key is a key from the API Keys tab, scoped to an AP
 version. The token arrives through a provider rather than as a string so a
 future rotating credential drops in without touching this file.
 
-Async generation needs a third header, x-client-authorization, which the portal
+Every upload and download also has to name the storage container it is talking to
+through X-Storage-Type, and generation hands back "{guid}:{filename}" while the
+download endpoint keys on the guid alone.
+
+Async generation needs a third auth header, x-client-authorization, which the portal
 generates rather than the caller constructing it. We generate one document at a
 time, so the synchronous endpoint is the right one and that header never
 appears.
@@ -37,6 +41,13 @@ from signet.errors import AdapterError
 
 BASE_URL: Final = "https://api.doctavian.com/v1"
 _TIMEOUT_SECONDS: Final = 60.0
+
+_DATA_CONTAINER: Final = "document-data"
+_TEMPLATE_CONTAINER: Final = "document-template"
+# Their download endpoint names three containers and does not say which one holds a
+# generated document, so this is the one value here taken from inference rather than
+# the spec. Confirm it against a live generate and download before the demo.
+_GENERATED_CONTAINER: Final = "document-data"
 
 TokenProvider = Callable[[], str]
 
@@ -141,7 +152,9 @@ class DoctavianRenderer:
     def upload_template(self, path: str, content: bytes) -> str:
         """Upload a template file and return the urn to configure against a class."""
         return _first_uploaded_id(
-            _unwrap(self._post_file("/documents/template/upload", path, content))
+            _unwrap(
+                self._post_file("/documents/template/upload", path, content, _TEMPLATE_CONTAINER)
+            )
         )
 
     def ping(self) -> bool:
@@ -152,7 +165,14 @@ class DoctavianRenderer:
     def _upload_data(self, document_class: str, payload: Mapping[str, str]) -> str:
         body = json.dumps(payload, indent=2).encode("utf-8")
         return _first_uploaded_id(
-            _unwrap(self._post_file("/documents/data/upload", f"{document_class}.json", body))
+            _unwrap(
+                self._post_file(
+                    "/documents/data/upload",
+                    f"{document_class}.json",
+                    body,
+                    _DATA_CONTAINER,
+                )
+            )
         )
 
     def _generate(
@@ -187,19 +207,37 @@ class DoctavianRenderer:
         return urn
 
     def _download(self, document_urn: str) -> bytes:
-        # The download endpoint returns the file itself, not a result envelope.
-        return self._request("GET", f"/documents/document/{document_urn}/download").content
+        # Generation returns "{guid}:{filename}" but download keys on the guid alone,
+        # and the file itself comes back rather than a result envelope.
+        document_id = document_urn.split(":", 1)[0]
+        return self._request(
+            "GET",
+            f"/documents/document/{document_id}/download",
+            headers={"X-Storage-Type": _GENERATED_CONTAINER},
+        ).content
 
     def _post_json(self, path: str, body: Mapping[str, Any]) -> httpx.Response:
         return self._request("POST", path, json=body)
 
-    def _post_file(self, path: str, filename: str, content: bytes) -> httpx.Response:
-        return self._request("POST", path, files={"file": (filename, content)})
+    def _post_file(
+        self, path: str, filename: str, content: bytes, container: str
+    ) -> httpx.Response:
+        return self._request(
+            "POST",
+            path,
+            files={"file": (filename, content)},
+            headers={"X-Storage-Type": container},
+        )
 
-    def _request(self, method: str, path: str, **kwargs: Any) -> httpx.Response:
+    def _request(
+        self, method: str, path: str, headers: Mapping[str, str] | None = None, **kwargs: Any
+    ) -> httpx.Response:
         try:
             response = self._client.request(
-                method, f"{self._base_url}{path}", headers=self._headers(), **kwargs
+                method,
+                f"{self._base_url}{path}",
+                headers={**self._headers(), **(headers or {})},
+                **kwargs,
             )
         except httpx.HTTPError as exc:
             raise AdapterError(f"Doctavian {method} {path} failed: {exc}") from exc
