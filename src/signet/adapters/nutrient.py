@@ -1,24 +1,34 @@
-"""Nutrient DWS Processor API.
+"""Nutrient DWS Data Extraction API.
 
-Written against their OpenAPI 3.1 spec, version 1.18.0.
+Written against their API overview and extract guide, and confirmed against the
+live service rather than inferred.
 
-One endpoint does the work. POST /build takes a declarative instructions object
-and returns either a document or, with a json-content output, the document's
-contents. Extraction is not a separate endpoint; asking for keyValuePairs on a
-build is the extraction.
+Two products share the api.nutrient.io host and they are not interchangeable.
+The Processor API endpoints answer 403 to a Data Extraction key, which is what a
+key that is valid but unentitled looks like: an unknown key gets 401, so a 403
+is the service saying the credential is real and the account is not entitled.
+Everything here is Data Extraction only.
 
-Their key-value pairs carry a dataType, and the vocabulary happens to be exactly
-ours: IBAN, BIC, Currency, CreditCard, SSN, PostalAddress. A fidelity check can
-therefore ask for the IBAN the page actually shows rather than pattern matching
-text, and get a confidence score with it.
+Extraction is schema driven, which inverts the usual arrangement. Rather than
+accept whatever pairs a vendor happens to detect and hope its label vocabulary
+matches ours, we hand Nutrient the field names the signature covers and it
+returns those names with a citation each. The fidelity check then compares like
+for like, and nothing in Signet depends on a vendor's idea of what an IBAN is
+called.
 
-Confidence arrives as 0 to 100 and is normalised to 0.0 to 1.0 at this boundary,
-so no check has to remember which scale it is on.
+Every field is requested as a string so the printed form survives. Asking for a
+number turns 1240.00 into 1240, and the comparison against the signed 1240.00
+then fails on presentation rather than on content.
+
+A field the page does not carry is omitted from data while still appearing under
+metadata with nulls throughout, so data is what decides whether we found
+something. Confidence is already on 0.0 to 1.0 here, so nothing is rescaled.
 """
 
 from __future__ import annotations
 
 import json
+from collections.abc import Mapping
 from typing import Any, Final
 
 import httpx
@@ -28,10 +38,21 @@ from signet.ports.documents import BoundingBox, ExtractedField, Extraction
 
 BASE_URL: Final = "https://api.nutrient.io"
 _TIMEOUT_SECONDS: Final = 120.0
-_CONFIDENCE_SCALE: Final = 100.0
 
-# The key text Nutrient uses when a detected value has no label of its own.
-_UNLABELLED: Final = "#"
+# understand runs layout analysis before the schema is applied, which is what
+# produces a per field citation rather than a value with no provenance.
+_PARSE_MODE: Final = "understand"
+
+# Signet field name to the description Nutrient is given. Only fields that appear
+# on the page belong here; iss, ts and cls are envelope metadata and are never
+# printed, so there would be nothing to compare them against.
+EXTRACTION_SCHEMA: Final[Mapping[str, str]] = {
+    "id": "The invoice or document identifier printed on the page, exactly as shown",
+    "amt": "The total amount payable, digits exactly as printed, without a currency symbol",
+    "cur": "The ISO 4217 currency code",
+    "iban": "The IBAN of the account to be paid",
+    "bic": "The BIC or SWIFT code of the receiving bank",
+}
 
 
 def _box(raw: Any) -> BoundingBox | None:
@@ -39,13 +60,18 @@ def _box(raw: Any) -> BoundingBox | None:
         return None
     try:
         return BoundingBox(
-            left=float(raw["left"]),
-            top=float(raw["top"]),
+            left=float(raw["x"]),
+            top=float(raw["y"]),
             width=float(raw["width"]),
             height=float(raw["height"]),
         )
     except (KeyError, TypeError, ValueError):
         return None
+
+
+def _confidence(raw: Any) -> float:
+    """Absent confidence is treated as no confidence, which routes to a human."""
+    return float(raw) if isinstance(raw, int | float) else 0.0
 
 
 class NutrientClient:
@@ -64,7 +90,13 @@ class NutrientClient:
         except httpx.HTTPError as exc:
             raise AdapterError(f"Nutrient POST {path} failed: {exc}") from exc
         if response.status_code == 401:
-            raise AdapterError("Nutrient rejected the API key.")
+            raise AdapterError("Nutrient did not recognise the API key.")
+        if response.status_code == 403:
+            raise AdapterError(
+                f"Nutrient accepted the key but not for {path}. A 403 rather than a 401 means "
+                "the key is valid and the account is not entitled to the product serving that "
+                "path, so check the key came from the Data Extraction dashboard."
+            )
         if not response.is_success:
             raise AdapterError(
                 f"Nutrient POST {path} returned {response.status_code}: {response.text[:200]}"
@@ -73,99 +105,65 @@ class NutrientClient:
 
 
 class NutrientExtractor:
-    """Implements DocumentExtractor via a json-content build."""
+    """Implements DocumentExtractor against POST /extraction/extract."""
 
-    def __init__(self, client: NutrientClient, language: str = "english") -> None:
+    def __init__(
+        self,
+        client: NutrientClient,
+        schema: Mapping[str, str] = EXTRACTION_SCHEMA,
+        parse_mode: str = _PARSE_MODE,
+    ) -> None:
         self._client = client
-        self._language = language
+        self._schema = dict(schema)
+        self._parse_mode = parse_mode
 
     def extract(self, content: bytes, media_type: str) -> Extraction:
         instructions = {
-            "parts": [{"file": "document"}],
-            "output": {
-                "type": "json-content",
-                "plainText": False,
-                "structuredText": False,
-                "keyValuePairs": True,
-                "tables": False,
-                "language": self._language,
+            "schema": {
+                "type": "object",
+                "properties": {
+                    name: {"type": "string", "description": description}
+                    for name, description in self._schema.items()
+                },
             },
+            "parseConfig": {"mode": self._parse_mode},
+            "options": {"includeCitations": True},
         }
         response = self._client.post(
-            "/build",
-            files={"document": ("document", content, media_type)},
+            "/extraction/extract",
+            files={"file": ("document", content, media_type)},
             data={"instructions": json.dumps(instructions)},
         )
         try:
             body = response.json()
         except ValueError as exc:
-            raise AdapterError(
-                "Nutrient returned a non-JSON body for a json-content build"
-            ) from exc
-        return Extraction(fields=tuple(self._fields(body)))
+            raise AdapterError("Nutrient returned a non-JSON extraction body") from exc
+        output = body.get("output")
+        if not isinstance(output, dict):
+            raise AdapterError(f"unexpected Nutrient extraction shape: {str(body)[:200]}")
+        return Extraction(fields=tuple(self._fields(output)))
 
-    def _fields(self, body: dict[str, Any]) -> list[ExtractedField]:
+    def _fields(self, output: Mapping[str, Any]) -> list[ExtractedField]:
+        data = output.get("data")
+        if not isinstance(data, dict):
+            return []
+        raw_metadata = output.get("metadata")
+        metadata = raw_metadata if isinstance(raw_metadata, dict) else {}
+
         fields: list[ExtractedField] = []
-        for page in body.get("pages", []) or []:
-            if not isinstance(page, dict):
+        for name, value in data.items():
+            if value is None:
                 continue
-            index = page.get("pageIndex")
-            page_number = int(index) if isinstance(index, int) else 0
-            for pair in page.get("keyValuePairs", []) or []:
-                field = self._field(pair, page_number)
-                if field is not None:
-                    fields.append(field)
+            citation = metadata.get(name)
+            citation = citation if isinstance(citation, dict) else {}
+            page = citation.get("pageIndex")
+            fields.append(
+                ExtractedField(
+                    name=str(name),
+                    value=str(value),
+                    confidence=_confidence(citation.get("confidence")),
+                    page=page if isinstance(page, int) else 0,
+                    box=_box(citation.get("bbox")),
+                )
+            )
         return fields
-
-    def _field(self, pair: Any, page: int) -> ExtractedField | None:
-        if not isinstance(pair, dict):
-            return None
-        key, value = pair.get("key"), pair.get("value")
-        if not isinstance(key, dict) or not isinstance(value, dict):
-            return None
-        label = str(key.get("content", ""))
-        return ExtractedField(
-            # An unlabelled value is still worth keeping when it is a typed one:
-            # an IBAN with no caption beside it is exactly what we look for.
-            name=str(value.get("dataType", "")) if label == _UNLABELLED else label,
-            value=str(value.get("content", "")),
-            confidence=float(pair.get("confidence", 0.0)) / _CONFIDENCE_SCALE,
-            page=page,
-            data_type=value.get("dataType") if isinstance(value.get("dataType"), str) else None,
-            box=_box(value.get("bbox")),
-        )
-
-
-class NutrientRedactor:
-    """Implements DocumentRedactor via AI redaction."""
-
-    def __init__(self, client: NutrientClient) -> None:
-        self._client = client
-
-    def redact(self, content: bytes, criteria: str) -> bytes:
-        payload = {"documents": [{"file": "document"}], "criteria": criteria}
-        response = self._client.post(
-            "/ai/redact",
-            files={"document": ("document", content, "application/pdf")},
-            data={"data": json.dumps(payload)},
-        )
-        return response.content
-
-
-def viewer_token(
-    client: NutrientClient, operations: tuple[str, ...], expires_in: int, origin: str | None = None
-) -> str:
-    """Mint a scoped, expiring token for the browser.
-
-    The Viewer runs client side, so it must never see the API key. A token
-    restricted to the operations it needs, to one origin, and to a short life is
-    revocable in a way the key is not.
-    """
-    body: dict[str, Any] = {"allowedOperations": list(operations), "expirationTime": expires_in}
-    if origin:
-        body["allowedOrigins"] = [origin]
-    data = client.post("/tokens", json=body).json()
-    token = data.get("jwt") or data.get("token") or data.get("accessToken")
-    if not isinstance(token, str):
-        raise AdapterError(f"Nutrient token response had no token field: {str(data)[:200]}")
-    return token

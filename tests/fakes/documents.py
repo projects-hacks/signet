@@ -13,18 +13,17 @@ class FakeDocumentExtractor:
         return self.extraction
 
     @staticmethod
-    def typed(**values: tuple[str, str, float]) -> FakeDocumentExtractor:
-        """Build an extraction from name -> (value, data_type, confidence)."""
+    def reading(**values: tuple[str, float]) -> FakeDocumentExtractor:
+        """Build an extraction from signed field name -> (value, confidence)."""
         fields = tuple(
             ExtractedField(
                 name=name,
                 value=value,
                 confidence=confidence,
                 page=0,
-                data_type=data_type,
                 box=BoundingBox(0.0, 0.0, 1.0, 1.0),
             )
-            for name, (value, data_type, confidence) in values.items()
+            for name, (value, confidence) in values.items()
         )
         return FakeDocumentExtractor(Extraction(fields=fields))
 

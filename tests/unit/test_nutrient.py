@@ -1,142 +1,124 @@
-"""Nutrient, against the shapes its OpenAPI 3.1 spec declares (version 1.18.0)."""
+"""Nutrient, against the Data Extraction shapes confirmed against the live service."""
 
 from __future__ import annotations
 
+import json
 from typing import Any
 
 import httpx
 import pytest
 
-from signet.adapters.nutrient import (
-    NutrientClient,
-    NutrientExtractor,
-    NutrientRedactor,
-    viewer_token,
-)
+from signet.adapters.nutrient import NutrientClient, NutrientExtractor
 from signet.errors import AdapterError
 
 
-def kvp(key: str, value: str, data_type: str, confidence: float) -> dict[str, Any]:
-    box = {"left": 1.0, "top": 2.0, "width": 3.0, "height": 4.0}
+def cited(value: str, confidence: float, page: int = 0) -> dict[str, Any]:
     return {
-        "confidence": confidence,
-        "key": {"content": key, "bbox": box},
-        "value": {"content": value, "dataType": data_type, "bbox": box},
+        "value": value,
+        "meta": {
+            "bbox": {"x": 300.0, "y": 247.0, "width": 305.0, "height": 33.0},
+            "confidence": confidence,
+            "pageIndex": page,
+            "pageNumber": page + 1,
+        },
     }
+
+
+def responder(fields: dict[str, dict[str, Any]], absent: tuple[str, ...] = ()) -> Any:
+    """Reproduce their envelope, including nulled metadata for absent fields."""
+    data = {name: item["value"] for name, item in fields.items()}
+    metadata = {name: item["meta"] for name, item in fields.items()}
+    for name in absent:
+        metadata[name] = {"bbox": None, "confidence": None, "pageIndex": None}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200, json={"status": 200, "output": {"data": data, "metadata": metadata}}
+        )
+
+    return handler
 
 
 def client(handler: Any) -> NutrientClient:
     return NutrientClient("key", client=httpx.Client(transport=httpx.MockTransport(handler)))
 
 
-def test_extraction_normalises_confidence_to_a_fraction() -> None:
+def extract(handler: Any) -> Any:
+    return NutrientExtractor(client(handler)).extract(b"%PDF", "application/pdf")
+
+
+def test_a_cited_field_carries_its_value_confidence_and_box() -> None:
+    extraction = extract(responder({"iban": cited("GB29 NWBK 6016 1331 9268 19", 0.95)}))
+    field = extraction.by_name()["iban"]
+    assert field.value == "GB29 NWBK 6016 1331 9268 19"
+    assert field.confidence == pytest.approx(0.95)
+    assert field.page == 0
+    assert field.box is not None
+    assert (field.box.left, field.box.top) == (300.0, 247.0)
+
+
+def test_confidence_is_not_rescaled() -> None:
+    """The Processor API reports 0 to 100. This one already reports a fraction."""
+    field = extract(responder({"amt": cited("1240.00", 0.95)})).by_name()["amt"]
+    assert field.confidence == pytest.approx(0.95)
+
+
+def test_a_field_absent_from_the_page_is_not_returned() -> None:
+    """Their metadata carries nulled entries for misses, so data decides."""
+    extraction = extract(responder({"id": cited("INV-1", 0.95)}, absent=("iban", "bic")))
+    assert set(extraction.by_name()) == {"id"}
+
+
+def test_a_value_without_a_citation_is_given_no_confidence() -> None:
+    """No provenance means a human looks at it, not that we trust it."""
+
     def handler(request: httpx.Request) -> httpx.Response:
-        return httpx.Response(
-            200,
-            json={
-                "pages": [
-                    {"pageIndex": 0, "keyValuePairs": [kvp("IBAN", "GB29 NWBK", "IBAN", 95.4)]}
-                ]
-            },
-        )
+        return httpx.Response(200, json={"output": {"data": {"id": "INV-1"}, "metadata": {}}})
 
-    field = client(handler) and NutrientExtractor(client(handler)).extract(
-        b"pdf", "application/pdf"
-    )
-    assert field.fields[0].confidence == pytest.approx(0.954)
-    assert field.fields[0].data_type == "IBAN"
+    field = extract(handler).by_name()["id"]
+    assert field.confidence == 0.0
+    assert field.box is None
 
 
-def test_the_build_asks_for_key_value_pairs() -> None:
+def test_the_schema_names_our_fields_and_asks_for_strings() -> None:
+    """A number turns 1240.00 into 1240 and breaks comparison on presentation."""
     seen: dict[str, Any] = {}
 
     def handler(request: httpx.Request) -> httpx.Response:
-        seen["body"] = request.read().decode(errors="ignore")
-        seen["auth"] = request.headers.get("Authorization")
-        return httpx.Response(200, json={"pages": []})
+        body = request.content.decode("utf-8", "replace")
+        marker = 'name="instructions"\r\n\r\n'
+        start = body.index(marker) + len(marker)
+        seen.update(json.loads(body[start : body.index("\r\n--", start)]))
+        return httpx.Response(200, json={"output": {"data": {}, "metadata": {}}})
 
-    NutrientExtractor(client(handler)).extract(b"pdf", "application/pdf")
+    extract(handler)
+    properties = seen["schema"]["properties"]
+    assert set(properties) == {"id", "amt", "cur", "iban", "bic"}
+    assert {spec["type"] for spec in properties.values()} == {"string"}
+    assert seen["options"]["includeCitations"] is True
 
-    assert "json-content" in seen["body"]
-    assert '"keyValuePairs": true' in seen["body"]
-    assert seen["auth"] == "Bearer key"
 
-
-def test_an_unlabelled_value_is_named_by_its_type() -> None:
-    """An IBAN with no caption beside it is exactly what we look for."""
+def test_an_unentitled_key_is_reported_as_entitlement_not_a_bad_key() -> None:
+    """403 after a clean 401 baseline means the key is real but the product is not ours."""
 
     def handler(request: httpx.Request) -> httpx.Response:
-        return httpx.Response(
-            200,
-            json={
-                "pages": [{"pageIndex": 0, "keyValuePairs": [kvp("#", "GB29NWBK", "IBAN", 90.0)]}]
-            },
-        )
+        return httpx.Response(403, json={"error": {"details": "Forbidden"}})
 
-    extraction = NutrientExtractor(client(handler)).extract(b"pdf", "application/pdf")
-    assert extraction.fields[0].name == "IBAN"
-    assert extraction.of_type("IBAN")[0].value == "GB29NWBK"
+    with pytest.raises(AdapterError, match="not entitled"):
+        extract(handler)
 
 
-def test_bounding_boxes_survive_so_a_reviewer_can_be_pointed_at_the_field() -> None:
-    def handler(request: httpx.Request) -> httpx.Response:
-        return httpx.Response(
-            200,
-            json={
-                "pages": [
-                    {"pageIndex": 2, "keyValuePairs": [kvp("Total", "14.75", "Currency", 99.0)]}
-                ]
-            },
-        )
-
-    field = NutrientExtractor(client(handler)).extract(b"pdf", "application/pdf").fields[0]
-    assert field.page == 2
-    assert field.box is not None
-    assert (field.box.left, field.box.height) == (1.0, 4.0)
-
-
-def test_malformed_pairs_are_skipped_rather_than_crashing() -> None:
-    def handler(request: httpx.Request) -> httpx.Response:
-        return httpx.Response(
-            200,
-            json={"pages": [{"pageIndex": 0, "keyValuePairs": ["nonsense", {"key": "wrong"}]}]},
-        )
-
-    assert NutrientExtractor(client(handler)).extract(b"pdf", "application/pdf").fields == ()
-
-
-def test_a_rejected_key_says_so() -> None:
+def test_an_unknown_key_is_reported_as_a_bad_key() -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         return httpx.Response(401, json={"error": {"details": "Unauthorized"}})
 
-    with pytest.raises(AdapterError, match="rejected the API key"):
-        NutrientExtractor(client(handler)).extract(b"pdf", "application/pdf")
+    with pytest.raises(AdapterError, match="did not recognise"):
+        extract(handler)
 
 
-def test_redaction_returns_the_cleaned_document() -> None:
+def test_a_non_json_body_is_an_adapter_error() -> None:
     def handler(request: httpx.Request) -> httpx.Response:
-        assert request.url.path == "/ai/redact"
-        return httpx.Response(200, content=b"%PDF redacted")
+        return httpx.Response(200, text="<html>gateway</html>")
 
-    assert NutrientRedactor(client(handler)).redact(b"pdf", "Redact all PII") == b"%PDF redacted"
-
-
-def test_a_viewer_token_is_scoped_and_expiring() -> None:
-    seen: dict[str, Any] = {}
-
-    def handler(request: httpx.Request) -> httpx.Response:
-        seen["body"] = request.read().decode()
-        return httpx.Response(200, json={"jwt": "scoped-token"})
-
-    token = viewer_token(
-        client(handler), operations=("data_extraction_api",), expires_in=600, origin="app.example"
-    )
-
-    assert token == "scoped-token"
-    assert "data_extraction_api" in seen["body"]
-    assert "app.example" in seen["body"]
-
-
-def test_a_missing_key_fails_at_construction() -> None:
-    with pytest.raises(ValueError, match="requires an API key"):
-        NutrientClient("")
+    with pytest.raises(AdapterError, match="non-JSON"):
+        extract(handler)

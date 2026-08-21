@@ -15,7 +15,7 @@ unknown, which routes it to a human rather than accusing anyone.
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from typing import Final
 
 from signet.core.verdict import Outcome, Signal
 from signet.errors import AdapterError
@@ -26,13 +26,10 @@ NAME = "fidelity"
 
 REVIEW_THRESHOLD = 0.80
 
-# Payload field to the extractor's own type vocabulary. Nutrient classifies these
-# natively, so a money field is found by type rather than by hunting for a label.
-TYPED_FIELDS: Mapping[str, str] = {
-    "iban": "IBAN",
-    "bic": "BIC",
-    "amt": "Currency",
-}
+# The printed, payment critical fields. We name them to the extractor rather than
+# accept a vendor's own labels, so both sides of the comparison use one vocabulary.
+# iss, ts and cls are envelope metadata and never appear on the page.
+COMPARED_FIELDS: Final = ("id", "amt", "cur", "iban", "bic")
 
 
 def _comparable(value: str) -> str:
@@ -57,26 +54,26 @@ class FidelityCheck:
             return Signal(NAME, Outcome.UNKNOWN, "Could not read the document.", str(exc))
 
         signed = context.mark.payload.fields
+        printed = extraction.by_name()
         uncertain: list[str] = []
 
-        for field_name, data_type in TYPED_FIELDS.items():
+        for field_name in COMPARED_FIELDS:
             expected = signed.get(field_name)
             if expected is None:
                 continue
-            found = extraction.of_type(data_type)
-            if not found:
+            found = printed.get(field_name)
+            # A signed field the page does not carry is not a discrepancy.
+            if found is None:
                 continue
 
-            confident = [item for item in found if item.confidence >= self._threshold]
-            if not confident:
+            if found.confidence < self._threshold:
                 uncertain.append(field_name)
                 continue
-            if not any(_comparable(item.value) == _comparable(expected) for item in confident):
-                shown = confident[0].value
+            if _comparable(found.value) != _comparable(expected):
                 return Signal(
                     NAME,
                     Outcome.FAIL,
-                    f"The page shows {shown} where the signature covers {expected}.",
+                    f"The page shows {found.value} where the signature covers {expected}.",
                     "extraction",
                 )
 

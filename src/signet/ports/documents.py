@@ -28,9 +28,9 @@ class BoundingBox:
 class ExtractedField:
     """One value with the evidence behind it.
 
-    data_type is the extractor's own classification. Nutrient types IBAN, BIC,
-    Currency, CreditCard and SSN natively, which is most of what we care about
-    on a document that moves money.
+    name is ours, not the extractor's. We hand the extractor the field names the
+    signature covers and it answers in those names, so both sides of a fidelity
+    comparison speak one vocabulary and no vendor's labelling can drift from it.
 
     confidence is normalised to 0.0 to 1.0 here. Nutrient reports 0 to 100, and
     a check comparing against 0.8 should not have to know that.
@@ -43,7 +43,6 @@ class ExtractedField:
     value: str
     confidence: float
     page: int
-    data_type: str | None = None
     box: BoundingBox | None = None
 
 
@@ -53,9 +52,6 @@ class Extraction:
 
     def by_name(self) -> Mapping[str, ExtractedField]:
         return {field.name: field for field in self.fields}
-
-    def of_type(self, data_type: str) -> tuple[ExtractedField, ...]:
-        return tuple(field for field in self.fields if field.data_type == data_type)
 
 
 class DocumentExtractor(Protocol):
@@ -70,7 +66,3 @@ class DocumentRenderer(Protocol):
     def render(
         self, document_class: str, fields: Mapping[str, str], mark: str, locator: str
     ) -> bytes: ...
-
-
-class DocumentRedactor(Protocol):
-    def redact(self, content: bytes, criteria: str) -> bytes: ...

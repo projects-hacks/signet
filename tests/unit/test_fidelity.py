@@ -35,26 +35,26 @@ def context_with_mark() -> VerificationContext:
 
 
 def test_a_matching_page_passes() -> None:
-    extractor = FakeDocumentExtractor.typed(iban=("GB29NWBK60161331926819", "IBAN", 0.99))
+    extractor = FakeDocumentExtractor.reading(iban=("GB29NWBK60161331926819", 0.99))
     signal = FidelityCheck(extractor).run(context_with_mark())
     assert signal.outcome is Outcome.PASS
 
 
 def test_presentation_differences_are_not_discrepancies() -> None:
     """A rendered IBAN carries spaces. That is not a doctored document."""
-    extractor = FakeDocumentExtractor.typed(iban=("GB29 NWBK 6016 1331 9268 19", "IBAN", 0.99))
+    extractor = FakeDocumentExtractor.reading(iban=("GB29 NWBK 6016 1331 9268 19", 0.99))
     assert FidelityCheck(extractor).run(context_with_mark()).outcome is Outcome.PASS
 
 
 def test_a_doctored_account_number_fails_despite_a_valid_signature() -> None:
-    extractor = FakeDocumentExtractor.typed(iban=("GB94BARC10201530093459", "IBAN", 0.99))
+    extractor = FakeDocumentExtractor.reading(iban=("GB94BARC10201530093459", 0.99))
     signal = FidelityCheck(extractor).run(context_with_mark())
     assert signal.outcome is Outcome.FAIL
     assert "GB94BARC" in signal.detail
 
 
 def test_low_confidence_routes_to_a_human_rather_than_accusing() -> None:
-    extractor = FakeDocumentExtractor.typed(iban=("GB94BARC10201530093459", "IBAN", 0.40))
+    extractor = FakeDocumentExtractor.reading(iban=("GB94BARC10201530093459", 0.40))
     signal = FidelityCheck(extractor).run(context_with_mark())
     assert signal.outcome is Outcome.UNKNOWN
     assert "Needs a human" in signal.detail
