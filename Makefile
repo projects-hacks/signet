@@ -1,4 +1,4 @@
-.PHONY: setup check test gate demo verify clean
+.PHONY: setup check test doctor gate demo verify clean
 
 setup:
 	uv sync
@@ -13,6 +13,9 @@ check:
 
 test:
 	uv run pytest --cov=signet --cov-branch --cov-fail-under=80
+
+doctor:
+	uv run python scripts/check_env.py
 
 gate:
 	uv run python scripts/gates/forge.py

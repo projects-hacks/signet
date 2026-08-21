@@ -3,6 +3,9 @@
 Everything else takes what it needs as an argument. That keeps configuration
 testable, keeps secrets out of import side effects, and means a missing key
 surfaces once at startup rather than deep inside a request.
+
+Every name here appears in .env.example. If you add one, add it there too, or
+the next person will not know it exists.
 """
 
 from __future__ import annotations
@@ -22,15 +25,21 @@ DEFAULT_RESOLVERS: Final = (
     "https://dns.google/resolve",
 )
 
+_PLACEHOLDER: Final = "replace-me"
+
 
 @dataclass(frozen=True, slots=True)
 class Credentials:
     name: str
     values: tuple[str, ...]
 
+    @property
+    def configured(self) -> bool:
+        return all(value and value != _PLACEHOLDER for value in self.values)
+
     def require(self) -> tuple[str, ...]:
         """Return the values, or explain exactly which service is unconfigured."""
-        if not all(self.values):
+        if not self.configured:
             raise ConfigError(
                 f"{self.name} is not configured. Set it in .env, or run with "
                 f"{FIXTURES_ENV}=1 to use recorded responses."
@@ -39,17 +48,50 @@ class Credentials:
 
 
 @dataclass(frozen=True, slots=True)
+class Demo:
+    """The domains the demo issues and verifies against.
+
+    Both are ours. Never register a permutation of a real company's domain, not
+    even to demonstrate one.
+    """
+
+    issuer_domain: str
+    lookalike_domain: str
+    brand: str
+
+
+@dataclass(frozen=True, slots=True)
 class Settings:
     fixtures: bool
     resolvers: tuple[str, ...]
+    demo: Demo
     xano: Credentials
     nutrient: Credentials
     foxit_services: Credentials
     foxit_esign: Credentials
     doctavian: Credentials
+    doctavian_signatures: Credentials
     namecom: Credentials
     serpapi: Credentials
     llm: Credentials
+
+    def unconfigured(self) -> tuple[str, ...]:
+        """Names of services still missing credentials, for a startup report."""
+        return tuple(
+            item.name
+            for item in (
+                self.xano,
+                self.nutrient,
+                self.foxit_services,
+                self.foxit_esign,
+                self.doctavian,
+                self.doctavian_signatures,
+                self.namecom,
+                self.serpapi,
+                self.llm,
+            )
+            if not item.configured
+        )
 
 
 def _get(name: str, default: str = "") -> str:
@@ -65,6 +107,11 @@ def load_settings() -> Settings:
     return Settings(
         fixtures=_get(FIXTURES_ENV, "1") not in {"0", "false", "no"},
         resolvers=DEFAULT_RESOLVERS,
+        demo=Demo(
+            issuer_domain=_get("SIGNET_DEMO_DOMAIN"),
+            lookalike_domain=_get("SIGNET_DEMO_LOOKALIKE"),
+            brand=_get("SIGNET_DEMO_BRAND"),
+        ),
         xano=Credentials("Xano", (_get("XANO_BASE_URL"), _get("XANO_API_KEY"))),
         nutrient=Credentials("Nutrient", (_get("NUTRIENT_API_KEY"),)),
         foxit_services=Credentials(
@@ -75,8 +122,15 @@ def load_settings() -> Settings:
                 _get("FOXIT_CLOUD_API_CLIENT_SECRET"),
             ),
         ),
-        foxit_esign=Credentials("Foxit eSign", (_get("FOXIT_ESIGN_API_KEY"),)),
-        doctavian=Credentials("Doctavian", (_get("DOCTAVIAN_API_KEY"),)),
+        foxit_esign=Credentials(
+            "Foxit eSign", (_get("FOXIT_ESIGN_BASE_URL"), _get("FOXIT_ESIGN_API_KEY"))
+        ),
+        doctavian=Credentials(
+            "Doctavian Documents", (_get("DOCTAVIAN_DOCUMENTS_KEY"), _get("DOCTAVIAN_TOKEN"))
+        ),
+        doctavian_signatures=Credentials(
+            "Doctavian Signatures", (_get("DOCTAVIAN_SIGNATURES_KEY"), _get("DOCTAVIAN_TOKEN"))
+        ),
         namecom=Credentials(
             "name.com",
             (
