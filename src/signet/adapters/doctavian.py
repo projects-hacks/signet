@@ -13,11 +13,15 @@ requests, not one.
 A Data Source and a Document Solution are account level setup, not per document.
 provision() creates them once; render() never touches them.
 
-Auth is two headers. The bearer is a standard OAuth 2.0 token from Microsoft or
-Google rather than a Doctavian credential, so acquisition is injected. x-api-key
-is scoped per API area, so the Documents key will not open Signatures. Tokens
-are rejected within roughly two minutes of expiry, so a caching provider must
-refresh ahead of that boundary rather than on failure.
+Auth is two headers. The bearer is a personal access token taken from the portal
+Authorization tab, and x-api-key is a key from the API Keys tab, scoped to an API
+version. The token arrives through a provider rather than as a string so a
+future rotating credential drops in without touching this file.
+
+Async generation needs a third header, x-client-authorization, which the portal
+generates rather than the caller constructing it. We generate one document at a
+time, so the synchronous endpoint is the right one and that header never
+appears.
 """
 
 from __future__ import annotations

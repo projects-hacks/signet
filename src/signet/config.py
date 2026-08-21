@@ -125,11 +125,16 @@ def load_settings() -> Settings:
         foxit_esign=Credentials(
             "Foxit eSign", (_get("FOXIT_ESIGN_BASE_URL"), _get("FOXIT_ESIGN_API_KEY"))
         ),
-        doctavian=Credentials(
-            "Doctavian Documents", (_get("DOCTAVIAN_DOCUMENTS_KEY"), _get("DOCTAVIAN_TOKEN"))
-        ),
+        doctavian=Credentials("Doctavian", (_get("DOCTAVIAN_API_KEY"), _get("DOCTAVIAN_TOKEN"))),
         doctavian_signatures=Credentials(
-            "Doctavian Signatures", (_get("DOCTAVIAN_SIGNATURES_KEY"), _get("DOCTAVIAN_TOKEN"))
+            "Doctavian Signatures",
+            # Their portal scopes the key by API version. If it turns out to
+            # scope by area too, set the second key; otherwise the one key
+            # covers both and this falls back to it.
+            (
+                _get("DOCTAVIAN_SIGNATURES_KEY") or _get("DOCTAVIAN_API_KEY"),
+                _get("DOCTAVIAN_TOKEN"),
+            ),
         ),
         namecom=Credentials(
             "name.com",
