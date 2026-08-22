@@ -17,6 +17,7 @@ from pathlib import Path
 from signet.adapters.dns_multi import DohResolver
 from signet.adapters.local_store import DEFAULT_PATH, LocalRecordStore
 from signet.adapters.namecom import NameComClient, NameComDns
+from signet.adapters.nutrient import NutrientClient, NutrientExtractor
 from signet.adapters.qr import ImageMarkReader, render_mark
 from signet.adapters.rdap import RdapRegistrationData
 from signet.config import load_settings
@@ -147,8 +148,18 @@ def verify(args: argparse.Namespace) -> int:
         return 1
 
     store = LocalRecordStore(Path(args.store))
+    settings = load_settings()
+    # Without an extractor the pipeline simply runs one check fewer, so an
+    # unconfigured Nutrient degrades the verdict's depth rather than breaking it.
+    extractor = (
+        NutrientExtractor(NutrientClient(settings.nutrient.values[0]))
+        if settings.nutrient.configured and not settings.fixtures
+        else None
+    )
     pipeline = VerificationPipeline(
-        checks=default_checks(DohResolver(), store, RdapRegistrationData(), date.today()),
+        checks=default_checks(
+            DohResolver(), store, RdapRegistrationData(), date.today(), extractor
+        ),
         store=store,
         mark_reader=ImageMarkReader(),
     )
