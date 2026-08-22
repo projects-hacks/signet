@@ -116,7 +116,7 @@ def probe_live(settings: Settings) -> list[tuple[str, str, str]]:
         base_url, api_key = settings.xano.values
         try:
             XanoRecordStore(base_url, api_key).issuer("connectivity-probe.invalid")
-            results.append(("Xano", OK, "the API group answered and the key was accepted"))
+            results.append(("Xano", OK, "the issuer endpoint answered and the key was accepted"))
         except (AdapterError, ValueError) as exc:
             results.append(("Xano", FAILED, str(exc)[:70]))
 

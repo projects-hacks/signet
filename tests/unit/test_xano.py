@@ -123,3 +123,33 @@ def test_a_rejected_key_names_the_header_to_check() -> None:
 def test_missing_configuration_fails_at_construction() -> None:
     with pytest.raises(ValueError, match="base URL and an API key"):
         XanoRecordStore("", "")
+
+
+def test_a_missing_route_is_an_error_rather_than_a_missing_record() -> None:
+    """An empty workspace answered 404 and looked exactly like a working one."""
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            404,
+            json={"code": "ERROR_CODE_NOT_FOUND", "message": "Unable to locate request."},
+        )
+
+    store = XanoRecordStore(
+        "https://x.invalid/api:abc",
+        "key",
+        client=httpx.Client(transport=httpx.MockTransport(handler)),
+    )
+    with pytest.raises(AdapterError, match="no endpoint"):
+        store.issuer("probe.invalid")
+
+
+def test_a_genuine_record_miss_is_still_none() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(404, json={"message": "no such issuer"})
+
+    store = XanoRecordStore(
+        "https://x.invalid/api:abc",
+        "key",
+        client=httpx.Client(transport=httpx.MockTransport(handler)),
+    )
+    assert store.issuer("probe.invalid") is None

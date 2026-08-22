@@ -29,6 +29,11 @@ API_KEY_HEADER: Final = "X-Signet-Key"
 _TIMEOUT_SECONDS: Final = 20.0
 
 
+# Xano's routing 404 carries this message. A function stack reporting a genuine
+# record miss does not.
+_ROUTE_MISSING: Final = "Unable to locate request"
+
+
 class XanoRecordStore:
     def __init__(self, base_url: str, api_key: str, client: httpx.Client | None = None) -> None:
         if not base_url or not api_key:
@@ -88,8 +93,18 @@ class XanoRecordStore:
         except httpx.HTTPError as exc:
             raise AdapterError(f"Xano {method} {path} failed: {exc}") from exc
 
-        if response.status_code == 404 and allow_missing:
-            return None
+        if response.status_code == 404:
+            # Xano answers 404 both for a record that does not exist and for a route
+            # that was never built, and only the body tells them apart. Swallowing
+            # both made an empty workspace look like a working one, so a missing
+            # route is an error even where a missing record is not.
+            if _ROUTE_MISSING in response.text:
+                raise AdapterError(
+                    f"Xano has no endpoint at {path}. The API group answered, so the base "
+                    "URL and key are right, but the function stack does not exist yet."
+                )
+            if allow_missing:
+                return None
         if response.status_code in (401, 403):
             raise AdapterError(
                 f"Xano rejected the request. Check that {API_KEY_HEADER} matches the value "
