@@ -40,3 +40,13 @@ repos:
         language: system
         pass_filenames: false
         always_run: true
+
+      # At push rather than commit: the suite is too slow to sit in front of every
+      # commit, and a broken test reaching the remote is the thing worth stopping.
+      - id: pytest
+        name: pytest
+        entry: uv run pytest -q
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [pre-push]

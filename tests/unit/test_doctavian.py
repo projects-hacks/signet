@@ -129,10 +129,13 @@ def test_an_unwrapped_response_is_an_adapter_error() -> None:
 
 
 def test_a_401_explains_which_credential_is_wrong() -> None:
+    """Confirmed live: a key of thirty two zeros gives the same ApiKeyInvalid as a
+    real one, so the message must not claim the key is merely the wrong area."""
+
     def handler(request: httpx.Request) -> httpx.Response:
         return httpx.Response(401, json={"error": "ApiKeyInvalid"})
 
-    with pytest.raises(AdapterError, match="Documents key"):
+    with pytest.raises(AdapterError, match="does not recognise the x-api-key"):
         renderer(handler).ping()
 
 
