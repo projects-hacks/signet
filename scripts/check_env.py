@@ -81,10 +81,12 @@ def probe_live(settings: Settings) -> list[tuple[str, str, str]]:
         username, token, base_url = settings.namecom.values
         try:
             registrar = NameComRegistrar(NameComClient(username, token, base_url))
-            available = registrar.available((settings.demo.issuer_domain or "example.com",))
-            results.append(
-                ("name.com", OK, f"availability answered for {len(available)} domain(s)")
-            )
+            # An unconfigured demo domain is still a placeholder, and asking about a
+            # bare label is a malformed request rather than a credential problem.
+            probe = settings.demo.issuer_domain if settings.demo.configured else "example.com"
+            available = registrar.available((probe,))
+            state = "available" if available.get(probe) else "registered"
+            results.append(("name.com", OK, f"availability answered: {probe} is {state}"))
         except (AdapterError, ValueError) as exc:
             results.append(("name.com", FAILED, str(exc)[:70]))
 

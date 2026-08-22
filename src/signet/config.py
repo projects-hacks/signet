@@ -59,6 +59,14 @@ class Demo:
     lookalike_domain: str
     brand: str
 
+    @property
+    def configured(self) -> bool:
+        """A placeholder is not a domain, and nor is a bare label with no dot."""
+        return all(
+            value and value != _PLACEHOLDER and "." in value
+            for value in (self.issuer_domain, self.lookalike_domain)
+        )
+
 
 @dataclass(frozen=True, slots=True)
 class Settings:
