@@ -9,20 +9,24 @@ from __future__ import annotations
 
 import argparse
 import sys
+import time
 import uuid
 from datetime import UTC, date, datetime
 from pathlib import Path
 
 from signet.adapters.dns_multi import DohResolver
 from signet.adapters.local_store import DEFAULT_PATH, LocalRecordStore
+from signet.adapters.namecom import NameComClient, NameComDns
 from signet.adapters.qr import ImageMarkReader, render_mark
 from signet.adapters.rdap import RdapRegistrationData
+from signet.config import load_settings
 from signet.constants import DNS_LABEL
 from signet.core.mark import encode_mark, format_locator
 from signet.core.payload import canonicalize
 from signet.core.signing import Ed25519Signer, encode_public_key, generate_key
 from signet.core.verdict import Outcome, Verdict
 from signet.errors import SignetError
+from signet.issue.publish import KeyPublisher
 from signet.verify.pipeline import VerificationPipeline, VerificationRequest
 from signet.verify.registry import default_checks
 
@@ -71,6 +75,41 @@ def keygen(args: argparse.Namespace) -> int:
     print("  ttl    300\n")
     print(f"Check it with:  dig +short TXT {DNS_LABEL}.{args.domain}")
     return 0
+
+
+def publish(args: argparse.Namespace) -> int:
+    """Write the key to DNS, then wait for the public internet to agree."""
+    store = LocalRecordStore(Path(args.store))
+    issuer = store.issuer(args.domain)
+    if issuer is None:
+        print(
+            f"{args.domain} is not enrolled. Run: signet keygen --domain {args.domain} "
+            "--brand '<brand>'",
+            file=sys.stderr,
+        )
+        return 1
+
+    username, token, base_url = load_settings().namecom.require()
+    publisher = KeyPublisher(NameComDns(NameComClient(username, token, base_url)), DohResolver())
+    value = publisher.publish(args.domain, issuer.public_key)
+    print(f"wrote     TXT {DNS_LABEL}.{args.domain}")
+
+    for attempt in range(1, args.attempts + 1):
+        result = publisher.confirm(args.domain, value)
+        if result.visible:
+            agreed = "agreed" if result.resolvers_agreed else "DISAGREED"
+            signed = "validated" if result.dnssec_validated else "unsigned zone"
+            print(f"visible   {result.fqdn}")
+            print(f"resolvers {agreed}")
+            print(f"dnssec    {signed} (advisory)")
+            print(f"\nAnyone can now check it:  dig +short TXT {result.fqdn}")
+            return 0
+        print(f"  not visible yet, retrying ({attempt}/{args.attempts})")
+        if attempt < args.attempts:
+            time.sleep(args.delay)
+
+    print("the record was written but has not propagated yet", file=sys.stderr)
+    return 1
 
 
 def issue(args: argparse.Namespace) -> int:
@@ -140,6 +179,12 @@ def build_parser() -> argparse.ArgumentParser:
     generate.add_argument("--domain", required=True)
     generate.add_argument("--brand", required=True)
     generate.set_defaults(handler=keygen)
+
+    send = sub.add_parser("publish", help="write the key to DNS and confirm it resolves")
+    send.add_argument("--domain", required=True)
+    send.add_argument("--attempts", type=int, default=10)
+    send.add_argument("--delay", type=float, default=6.0)
+    send.set_defaults(handler=publish)
 
     make = sub.add_parser("issue", help="sign fields and draw the mark")
     make.add_argument("--domain", required=True)

@@ -26,3 +26,7 @@ web/.vite/
 .idea/
 .vscode/
 .signet/
+
+# Demo artefacts and issuer private keys
+.signet/
+demo/

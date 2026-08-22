@@ -56,18 +56,27 @@ class DohResolver:
         )
 
     def lookup_txt(self, name: str) -> TxtLookup:
-        answers: list[frozenset[str]] = []
-        validated = True
+        seen: list[tuple[frozenset[str], bool]] = []
         for provider in self._providers:
             records, authenticated = self._query(provider, name)
-            answers.append(frozenset(records))
-            validated = validated and authenticated
+            seen.append((frozenset(records), authenticated))
 
-        agreed = len(set(answers)) == 1
+        # A provider returning nothing has not contradicted one returning a key, it
+        # has not caught up. Negative caching makes that the normal state for the
+        # first minutes after publication, so counting it as a conflict reports our
+        # own propagation as a spoofing attempt. The attack this check exists for
+        # still fails: a forged key shows up as two providers answering with
+        # different keys, and withholding an answer cannot manufacture a signature.
+        answered = [(records, validated) for records, validated in seen if records]
+        if not answered:
+            return TxtLookup(name=name, records=(), dnssec_validated=False, resolvers_agreed=True)
+
+        distinct = {records for records, _ in answered}
+        agreed = len(distinct) == 1
         return TxtLookup(
             name=name,
-            records=tuple(sorted(answers[0])) if agreed else (),
-            dnssec_validated=validated and agreed,
+            records=tuple(sorted(next(iter(distinct)))) if agreed else (),
+            dnssec_validated=agreed and all(validated for _, validated in answered),
             resolvers_agreed=agreed,
         )
 
