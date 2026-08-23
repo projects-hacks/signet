@@ -17,6 +17,7 @@ from signet.verify.checks.domain_age import DomainAgeCheck
 from signet.verify.checks.duplicate import DuplicateCheck
 from signet.verify.checks.fidelity import FidelityCheck
 from signet.verify.checks.identity import IdentityCheck
+from signet.verify.checks.lookalike import LookalikeCheck
 from signet.verify.checks.signature import SignatureCheck
 
 
@@ -30,6 +31,7 @@ def default_checks(
     checks: list[Check] = [
         SignatureCheck(resolver),
         IdentityCheck(store),
+        LookalikeCheck(store),
         DuplicateCheck(store),
         DomainAgeCheck(registrations, today),
     ]

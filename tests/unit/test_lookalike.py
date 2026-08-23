@@ -210,9 +210,14 @@ def test_the_failure_names_the_imitation_and_the_domain_it_imitates() -> None:
     assert ENROLLED in signal.detail
 
 
-def test_an_unrelated_signing_domain_is_unknown_rather_than_failed() -> None:
-    """Signing from a domain we hold no record for is the identity check's finding."""
-    assert run("example.dev", issuer(ENROLLED)) is Outcome.UNKNOWN
+def test_an_unrelated_signing_domain_is_not_an_imitation() -> None:
+    """This check answers one question: does the signer imitate the named brand.
+
+    A domain that resembles nothing is not imitating anything, so this passes and
+    the identity check is the one that refuses the document. Reporting a failure
+    here as well would say the same thing twice under a name that does not fit.
+    """
+    assert run("example.dev", issuer(ENROLLED)) is Outcome.PASS
 
 
 def test_a_document_with_no_mark_is_unknown() -> None:

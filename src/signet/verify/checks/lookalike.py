@@ -43,29 +43,54 @@ class LookalikeCheck:
             return Signal(NAME, Outcome.UNKNOWN, "This document carries no mark.", "signet")
 
         domain = context.mark.payload.issuer
-        issuer = self._store.issuer(domain)
-        if issuer is not None and issuer.enrolled:
-            return Signal(
-                NAME,
-                Outcome.PASS,
-                f"{domain} is the enrolled domain itself, not an imitation of one.",
-                "registry",
-            )
-
-        imitated = self._nearest_enrolled(domain)
-        if imitated is None:
+        if context.claimed_brand is None:
             return Signal(
                 NAME,
                 Outcome.UNKNOWN,
-                f"No enrolled domain resembles {domain} closely enough to compare it against.",
+                "This document names no brand, so there is nothing for it to imitate.",
+                "registry",
+            )
+
+        # Confusability alone cannot say which of a pair is the imitation, and a
+        # legitimately enrolled domain is confusable with anyone imitating it. The
+        # brand on the paper breaks the symmetry: the domain worth comparing
+        # against is the one the claimed brand actually signs from.
+        claimed = self._brand_domain(context.claimed_brand)
+        if claimed is None:
+            return Signal(
+                NAME,
+                Outcome.UNKNOWN,
+                f"No enrolled domain to compare against for {context.claimed_brand}.",
+                "registry",
+            )
+        if claimed == domain:
+            return Signal(
+                NAME,
+                Outcome.PASS,
+                f"{domain} is the domain {context.claimed_brand} signs from.",
+                "registry",
+            )
+        if is_confusable(domain, claimed):
+            return Signal(
+                NAME,
+                Outcome.FAIL,
+                f"{domain} reads as {claimed}, which is where {context.claimed_brand} "
+                f"actually signs from, but it is not {claimed}.",
                 "registry",
             )
         return Signal(
             NAME,
-            Outcome.FAIL,
-            f"{domain} reads as {imitated}, an enrolled domain, but it is not {imitated}.",
+            Outcome.PASS,
+            f"{domain} does not resemble {claimed}.",
             "registry",
         )
+
+    def _brand_domain(self, brand: str) -> str | None:
+        wanted = brand.strip().casefold()
+        for issuer in self._store.enrolled_issuers():
+            if issuer.brand.strip().casefold() == wanted:
+                return issuer.domain
+        return None
 
     def _nearest_enrolled(self, domain: str) -> str | None:
         """The enrolled domain this one imitates most closely, if any.

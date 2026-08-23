@@ -30,6 +30,7 @@ class Verdict(Enum):
 CRITICAL_CHECKS: tuple[str, ...] = (
     "signature",
     "identity",
+    "lookalike",
     "duplicate",
     "fidelity",
 )
