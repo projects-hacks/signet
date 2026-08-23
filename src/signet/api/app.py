@@ -87,7 +87,7 @@ def build_pipeline(settings: Settings, store_path: Path) -> VerificationPipeline
 def create_app(
     settings: Settings | None = None,
     store_path: Path = DEFAULT_PATH,
-    static_root: Path | None = None,
+    static_root: Path | None = Path("web"),
 ) -> Starlette:
     resolved = settings or load_settings()
     pipeline = build_pipeline(resolved, store_path)
