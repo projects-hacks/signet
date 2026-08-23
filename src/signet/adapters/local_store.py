@@ -49,6 +49,10 @@ class LocalRecordStore:
             frozen=bool(record.get("frozen", False)),
         )
 
+    def enrolled_issuers(self) -> tuple[Issuer, ...]:
+        found = (self.issuer(domain) for domain in self._data["issuers"])
+        return tuple(issuer for issuer in found if issuer is not None and issuer.enrolled)
+
     def enrol(self, domain: str, brand: str, public_key: bytes) -> None:
         self._data["issuers"][domain] = {
             "brand": brand,

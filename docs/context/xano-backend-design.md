@@ -42,6 +42,7 @@ their schema documentation rather than a guess.
 | Table | Holds | Uniqueness that matters |
 |---|---|---|
 | `issuer` | domain, brand, public key, enrolled, frozen, timestamps | unique on domain |
+| | needs both a lookup by domain and a list of the enrolled, see scenario 17 | |
 | `submission` | document fingerprint, who submitted, when first seen | unique on fingerprint |
 | `document` | issuer domain, document id, canonical payload, mark, batch | unique on issuer plus document id |
 | `batch` | issuer domain, day, merkle root, published state | unique on issuer plus day |
@@ -74,6 +75,12 @@ of these and not the other way round.
    verification. If the append fails the verdict still stands, because a
    verdict that depends on logging is a verdict that goes down when logging
    does.
+
+17. The lookalike check asks which enrolled domain a signing domain resembles.
+    That needs the enrolled set, not a lookup, because probing once per
+    candidate spelling is several hundred round trips to answer one question.
+    So the issuer table needs a list endpoint filtered to enrolled, alongside
+    the single lookup.
 
 ### Availability, and what happens when Xano is unreachable
 

@@ -44,15 +44,24 @@ class XanoRecordStore:
 
     def issuer(self, domain: str) -> Issuer | None:
         body = self._request("GET", f"/issuer/{domain}", allow_missing=True)
-        if body is None:
-            return None
+        return None if body is None else self._issuer(body, domain)
+
+    @staticmethod
+    def _issuer(row: Mapping[str, Any], domain: str = "") -> Issuer:
         return Issuer(
-            domain=str(body.get("domain", domain)),
-            brand=str(body.get("brand", "")),
-            public_key=bytes.fromhex(str(body.get("public_key_hex", ""))),
-            enrolled=bool(body.get("enrolled")),
-            frozen=bool(body.get("frozen")),
+            domain=str(row.get("domain", domain)),
+            brand=str(row.get("brand", "")),
+            public_key=bytes.fromhex(str(row.get("public_key_hex", ""))),
+            enrolled=bool(row.get("enrolled")),
+            frozen=bool(row.get("frozen")),
         )
+
+    def enrolled_issuers(self) -> tuple[Issuer, ...]:
+        body = self._request("GET", "/issuers")
+        rows = body.get("issuers") if isinstance(body, dict) else body
+        if not isinstance(rows, list):
+            raise AdapterError(f"Xano returned an unexpected issuer list: {str(body)[:200]}")
+        return tuple(self._issuer(row) for row in rows if isinstance(row, dict))
 
     def record_submission(self, fingerprint: str, submitted_by: str) -> bool:
         """Record a submission. Returns False when this fingerprint was seen before.

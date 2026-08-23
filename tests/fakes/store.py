@@ -15,6 +15,9 @@ class FakeRecordStore:
     def issuer(self, domain: str) -> Issuer | None:
         return self.issuers.get(domain)
 
+    def enrolled_issuers(self) -> tuple[Issuer, ...]:
+        return tuple(issuer for issuer in self.issuers.values() if issuer.enrolled)
+
     def record_submission(self, fingerprint: str, submitted_by: str) -> bool:
         if fingerprint in self.submissions:
             return False

@@ -24,9 +24,9 @@ the pass rather than the failure.
 
 from __future__ import annotations
 
-from signet.core.lookalike import confusability, is_confusable, permutations
+from signet.core.lookalike import confusability, is_confusable
 from signet.core.verdict import Outcome, Signal
-from signet.ports.store import Issuer, RecordStore
+from signet.ports.store import RecordStore
 from signet.verify.context import VerificationContext
 
 NAME = "lookalike"
@@ -43,7 +43,8 @@ class LookalikeCheck:
             return Signal(NAME, Outcome.UNKNOWN, "This document carries no mark.", "signet")
 
         domain = context.mark.payload.issuer
-        if self._enrolled(domain) is not None:
+        issuer = self._store.issuer(domain)
+        if issuer is not None and issuer.enrolled:
             return Signal(
                 NAME,
                 Outcome.PASS,
@@ -66,24 +67,21 @@ class LookalikeCheck:
             "registry",
         )
 
-    def _enrolled(self, domain: str) -> Issuer | None:
-        issuer = self._store.issuer(domain)
-        return issuer if issuer is not None and issuer.enrolled else None
-
     def _nearest_enrolled(self, domain: str) -> str | None:
         """The enrolled domain this one imitates most closely, if any.
 
-        Ties break on the permutation order, which is fixed, so the same document
-        always names the same domain in its evidence.
+        Enumerating the enrolled set beats probing the store once per candidate
+        spelling. The neighbourhood runs to several hundred names, and on the
+        verification path that is several hundred round trips to answer one
+        question. Ties break on the enrolled order, which is stable, so the same
+        document always names the same domain in its evidence.
         """
         best: str | None = None
         best_score = 0.0
-        for candidate in permutations(domain):
-            if self._enrolled(candidate) is None:
+        for issuer in self._store.enrolled_issuers():
+            if issuer.domain == domain:
                 continue
-            if not is_confusable(domain, candidate):
-                continue
-            score = confusability(domain, candidate)
-            if score > best_score:
-                best, best_score = candidate, score
+            score = confusability(domain, issuer.domain)
+            if score > best_score and is_confusable(domain, issuer.domain):
+                best, best_score = issuer.domain, score
         return best

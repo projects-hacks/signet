@@ -24,6 +24,15 @@ class Issuer:
 class RecordStore(Protocol):
     def issuer(self, domain: str) -> Issuer | None: ...
 
+    def enrolled_issuers(self) -> tuple[Issuer, ...]:
+        """Every enrolled issuer.
+
+        The lookalike check needs the whole set, because it asks which enrolled
+        domain a signing domain resembles. Probing the store once per candidate
+        spelling would be several hundred round trips on the verification path.
+        """
+        ...
+
     def record_submission(self, fingerprint: str, submitted_by: str) -> bool:
         """Record a submission. Returns False when this fingerprint was seen before."""
         ...
