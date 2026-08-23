@@ -1,0 +1,279 @@
+/* Signet.
+   The subject is security printing: a signet ring pressed into wax, guilloche
+   rosettes, intaglio, cancellation marks. Light is paper. Dark is the same
+   document under ultraviolet, which is how a security document is really
+   inspected, so the ink turns luminous rather than the page turning grey. */
+
+:root {
+  --paper: #e7e9e2;
+  --paper-deep: #dcdfd6;
+  --ink: #12211c;
+  --ink-soft: #4a5b53;
+  --rule: #a3ada3;
+  --rule-faint: #c2cabf;
+  --seal: #1f4d3d;
+  --struck: #8e2a1f;
+  --gold: #8a6a1f;
+  --glow: 0;
+
+  --serif: Spectral, "Iowan Old Style", Georgia, serif;
+  --stamp: "Saira Condensed", "Arial Narrow", sans-serif;
+  --mono: "Spline Sans Mono", ui-monospace, "SF Mono", monospace;
+
+  --measure: 64ch;
+  --gap: clamp(1.1rem, 2.4vw, 2rem);
+  --bay: clamp(3rem, 9vw, 7rem);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper: #0a0f0d;
+    --paper-deep: #060a09;
+    --ink: #d8e4dc;
+    --ink-soft: #7f948a;
+    --rule: #2a3a33;
+    --rule-faint: #1a2621;
+    --seal: #3fe0a8;
+    --struck: #ff6a4d;
+    --gold: #e0b84a;
+    --glow: 1;
+  }
+}
+
+:root[data-theme="dark"] {
+  --paper: #0a0f0d;
+  --paper-deep: #060a09;
+  --ink: #d8e4dc;
+  --ink-soft: #7f948a;
+  --rule: #2a3a33;
+  --rule-faint: #1a2621;
+  --seal: #3fe0a8;
+  --struck: #ff6a4d;
+  --gold: #e0b84a;
+  --glow: 1;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--serif);
+  font-size: clamp(1rem, 0.96rem + 0.2vw, 1.09rem);
+  line-height: 1.62;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1, h2, h3, p, ul, ol, figure { margin: 0; }
+ul, ol { padding: 0; list-style: none; }
+a { color: inherit; }
+
+.wrap { width: min(64rem, 100% - clamp(1.6rem, 6vw, 5rem)); margin-inline: auto; }
+.cap {
+  font-family: var(--stamp);
+  font-weight: 500;
+  font-size: 0.72rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+.mono { font-family: var(--mono); font-size: 0.84rem; }
+
+/* Masthead, carried on every view. */
+.plate {
+  display: flex;
+  align-items: baseline;
+  gap: 1rem;
+  padding: 1.4rem 0 1.1rem;
+  border-bottom: 2px solid var(--ink);
+}
+.plate__mark {
+  font-family: var(--stamp);
+  font-weight: 700;
+  font-size: clamp(1.4rem, 1.1rem + 1.1vw, 1.9rem);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  text-decoration: none;
+}
+.plate__gap { flex: 1; height: 1px; background: var(--rule); }
+.plate__nav { display: flex; gap: 1.3rem; }
+.plate__nav a { text-decoration: none; }
+.plate__nav a[aria-current="page"] { border-bottom: 2px solid var(--seal); }
+
+.foot {
+  margin-top: var(--bay);
+  padding: 1.6rem 0 2.6rem;
+  border-top: 1px solid var(--rule-faint);
+  font-size: 0.85rem;
+  color: var(--ink-soft);
+}
+
+/* Landing. The hero is the claim itself, set as a printed statement. */
+.hero { padding: clamp(3rem, 10vw, 6.5rem) 0 var(--bay); }
+.hero__lede {
+  max-width: 22ch;
+  font-size: clamp(2.1rem, 1.1rem + 4.6vw, 4.1rem);
+  font-weight: 300;
+  line-height: 1.03;
+  letter-spacing: -0.015em;
+  text-wrap: balance;
+}
+.hero__lede em { font-style: italic; color: var(--seal); }
+.hero__sub {
+  max-width: var(--measure);
+  margin-top: 1.6rem;
+  font-size: clamp(1.05rem, 1rem + 0.4vw, 1.24rem);
+  color: var(--ink-soft);
+}
+.hero__act { display: flex; flex-wrap: wrap; gap: 0.9rem; margin-top: 2.2rem; }
+
+.press {
+  display: inline-block;
+  font-family: var(--stamp);
+  font-weight: 700;
+  font-size: 0.94rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  text-decoration: none;
+  color: var(--paper);
+  background: var(--ink);
+  border: 1px solid var(--ink);
+  padding: 0.75rem 1.7rem;
+  cursor: pointer;
+}
+.press--ghost { color: var(--ink); background: transparent; }
+.press[disabled] { opacity: 0.32; cursor: not-allowed; }
+
+/* The two numbers that make the case. Set as printed figures, not stat cards. */
+.figures {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+  gap: var(--gap);
+  padding: var(--bay) 0;
+  border-top: 1px solid var(--rule-faint);
+  border-bottom: 1px solid var(--rule-faint);
+}
+.figure__n {
+  font-family: var(--stamp);
+  font-weight: 700;
+  font-size: clamp(2.6rem, 1.5rem + 4vw, 4rem);
+  line-height: 1;
+  letter-spacing: -0.01em;
+}
+.figure--bad .figure__n { color: var(--struck); }
+.figure--odd .figure__n { color: var(--gold); }
+.figure p { margin-top: 0.6rem; max-width: 34ch; color: var(--ink-soft); }
+
+/* How it works, as three struck steps. Order is real here: publish, sign, check. */
+.steps { padding: var(--bay) 0; display: grid; gap: var(--gap); }
+.steps__list { display: grid; grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr)); gap: var(--gap); }
+.step { display: grid; gap: 0.5rem; align-content: start; }
+.step__i {
+  font-family: var(--mono);
+  font-size: 0.8rem;
+  color: var(--seal);
+}
+.step h3 { font-size: 1.15rem; font-weight: 600; }
+.step p { color: var(--ink-soft); }
+
+.proof { padding: var(--bay) 0; border-top: 1px solid var(--rule-faint); }
+.proof h2 { font-size: clamp(1.5rem, 1.1rem + 1.6vw, 2.1rem); font-weight: 300; max-width: 24ch; }
+.proof p { max-width: var(--measure); margin-top: 1rem; color: var(--ink-soft); }
+.slab {
+  margin-top: 1.6rem;
+  padding: 1.1rem 1.3rem;
+  background: var(--paper-deep);
+  border-left: 3px solid var(--seal);
+  font-family: var(--mono);
+  font-size: 0.84rem;
+  overflow-x: auto;
+  white-space: pre;
+}
+
+/* The examiner. */
+.counter { padding: var(--gap) 0; border-bottom: 1px solid var(--rule-faint); display: grid; gap: var(--gap); }
+.counter__row { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) auto; align-items: end; gap: var(--gap); }
+.field { display: grid; gap: 0.45rem; min-width: 0; }
+
+.drop, .brand {
+  font: inherit;
+  color: inherit;
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid var(--rule);
+  padding: 0.55rem 0;
+  text-align: left;
+  width: 100%;
+}
+.drop { display: grid; gap: 0.15rem; cursor: pointer; }
+.drop__hint { font-size: 0.78rem; color: var(--ink-soft); }
+.drop[data-over="true"] { border-bottom-color: var(--seal); }
+.drop[data-has="true"] .drop__name { font-weight: 600; }
+.brand::placeholder { color: var(--ink-soft); opacity: 0.6; }
+
+:where(.drop, .brand, .press, a):focus-visible { outline: 2px solid var(--seal); outline-offset: 3px; }
+
+.blank {
+  padding: clamp(3rem, 9vw, 5.5rem) 0;
+  text-align: center;
+  font-style: italic;
+  font-weight: 300;
+  font-size: 1.15rem;
+  color: var(--ink-soft);
+}
+
+/* The impression. */
+.impression { position: relative; display: grid; place-items: center; padding: clamp(1.6rem, 5vw, 3rem) 0 1rem; }
+.impression canvas { width: min(19rem, 62vw); height: auto; filter: drop-shadow(0 0 calc(var(--glow) * 14px) var(--halo, var(--seal))); }
+.impression__word {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  translate: -50% -50%;
+  rotate: -4deg;
+  font-family: var(--stamp);
+  font-weight: 700;
+  font-size: clamp(1.15rem, 0.7rem + 2.1vw, 1.85rem);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.result[data-verdict="certified"] { --halo: var(--seal); }
+.result[data-verdict="flagged"] { --halo: var(--struck); }
+.result[data-verdict="unsigned"] { --halo: var(--gold); }
+.result[data-verdict="certified"] .impression__word { color: var(--seal); }
+.result[data-verdict="flagged"] .impression__word { color: var(--struck); }
+.result[data-verdict="unsigned"] .impression__word { color: var(--gold); }
+.result__reason { max-width: var(--measure); margin: 0.5rem auto 0; text-align: center; font-size: 1.06rem; text-wrap: balance; }
+
+/* Findings as a ruled ledger, provenance kept in the margin. */
+.ledger { margin-top: var(--gap); }
+.ledger li {
+  display: grid;
+  grid-template-columns: 1.5rem minmax(0, 1fr) auto;
+  gap: 0.9rem;
+  align-items: baseline;
+  padding: 0.72rem 0;
+  border-top: 1px solid var(--rule-faint);
+}
+.ledger li:last-child { border-bottom: 1px solid var(--rule-faint); }
+.ledger__glyph { font-family: var(--stamp); font-weight: 700; font-size: 1.05rem; }
+.ledger li[data-outcome="pass"] .ledger__glyph { color: var(--seal); }
+.ledger li[data-outcome="fail"] .ledger__glyph { color: var(--struck); }
+.ledger li[data-outcome="unknown"] .ledger__glyph { color: var(--gold); }
+.ledger__what b { font-weight: 600; }
+.ledger__what span { display: block; color: var(--ink-soft); font-size: 0.95rem; }
+.ledger__from { font-family: var(--mono); font-size: 0.72rem; color: var(--ink-soft); white-space: nowrap; }
+
+.trace { margin-top: var(--gap); font-size: 0.85rem; color: var(--ink-soft); }
+
+@media (max-width: 46rem) {
+  .counter__row { grid-template-columns: 1fr; }
+  .ledger li { grid-template-columns: 1.4rem minmax(0, 1fr); }
+  .ledger__from { grid-column: 2; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+}

@@ -35,3 +35,7 @@ demo/
 .agents/
 .claude/
 skills-lock.json
+
+# Frontend build output and packages
+web/node_modules/
+web/dist/

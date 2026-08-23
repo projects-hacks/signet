@@ -1,53 +1,18 @@
 <!doctype html>
-<html lang="en" style="color-scheme: light dark">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="theme-color" content="#eef1f4" media="(prefers-color-scheme: light)">
-<meta name="theme-color" content="#0f1318" media="(prefers-color-scheme: dark)">
-<title>Signet</title>
-<meta name="description" content="Check whether a document really came from the business it names.">
+<meta name="theme-color" content="#e7e9e2" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0a0f0d" media="(prefers-color-scheme: dark)">
+<title>Signet, proof of origin for documents</title>
+<meta name="description" content="Every document carries a signature anchored to the issuer's own domain, so anyone can check who really sent it without an account and without trusting us.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;600;700&family=IBM+Plex+Mono:wght@400;600&display=swap">
-<link rel="stylesheet" href="styles.css">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Saira+Condensed:wght@500;700&family=Spectral:ital,wght@0,300;0,400;0,600;1,300;1,400&family=Spline+Sans+Mono:wght@400;500&display=swap">
 </head>
 <body>
-<header class="masthead">
-  <span class="wordmark">Signet</span>
-  <span class="tagline">Proof of origin, anchored in the issuer’s own domain</span>
-  <span class="state" id="state" aria-live="polite"></span>
-</header>
-
-<main class="bench">
-  <section aria-labelledby="exhibit-label">
-    <h2 class="label" id="exhibit-label">The document</h2>
-
-    <button type="button" class="exhibit" id="exhibit" aria-describedby="exhibit-help">
-      <span class="prompt" id="exhibit-help"><b>Choose a document</b><br>or drop one here</span>
-    </button>
-    <input type="file" id="file" accept="image/png,image/jpeg,image/webp,application/pdf" hidden>
-
-    <div class="brand-field">
-      <label class="label" for="brand">Who does it claim to be from</label>
-      <input id="brand" type="text" placeholder="Northpost" autocomplete="organization">
-    </div>
-
-    <button class="examine" id="examine" disabled>Examine</button>
-  </section>
-
-  <section aria-labelledby="finding-label">
-    <h2 class="label" id="finding-label">Findings</h2>
-    <div id="verdict" aria-live="polite"></div>
-    <p class="note" id="idle">
-      Every finding below is checked against something outside this page: a signing key
-      published in the issuer’s own DNS, a registration record, the text on the document
-      itself. Nothing here asks you to take our word for it.
-    </p>
-    <ul class="findings" id="findings" aria-live="polite" hidden></ul>
-  </section>
-</main>
-
-<script src="app.js"></script>
+<div id="root"></div>
+<script type="module" src="/src/main.jsx"></script>
 </body>
 </html>
