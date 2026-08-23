@@ -277,3 +277,56 @@ a { color: inherit; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
 }
+
+/* The working. A finding is a claim; this is the material it rests on, set
+   smaller and in the machine face because it is machine truth, not prose. */
+.working { margin-top: 0.55rem; }
+
+.working summary {
+  font-family: var(--stamp);
+  font-size: 0.68rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  cursor: pointer;
+  width: max-content;
+  border-bottom: 1px dotted var(--rule);
+  padding-bottom: 1px;
+}
+.working summary::marker { content: ""; }
+.working[open] summary { color: var(--seal); border-bottom-color: var(--seal); }
+.working summary:focus-visible { outline: 2px solid var(--seal); outline-offset: 3px; }
+
+.ev {
+  display: grid;
+  gap: 0.5rem;
+  margin-top: 0.7rem;
+  padding: 0.85rem 1rem;
+  background: var(--paper);
+  border-left: 2px solid var(--rule);
+}
+
+.ev__row { display: grid; grid-template-columns: 8.5rem minmax(0, 1fr); gap: 0.8rem; }
+
+.ev__k {
+  font-family: var(--stamp);
+  font-size: 0.66rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  padding-top: 0.2rem;
+}
+
+.ev__v { font-family: var(--mono); font-size: 0.76rem; min-width: 0; }
+.ev__v code { display: block; overflow-wrap: anywhere; }
+.ev__bytes { color: var(--ink); }
+
+.ev__answer { display: block; margin-bottom: 0.35rem; }
+.ev__answer b { display: block; font-family: var(--stamp); font-size: 0.7rem; letter-spacing: 0.1em; color: var(--ink-soft); font-weight: 500; }
+.ev__none { color: var(--gold); }
+.ev__agree { color: var(--seal); }
+.ev__disagree { color: var(--struck); }
+
+@media (max-width: 46rem) {
+  .ev__row { grid-template-columns: 1fr; gap: 0.2rem; }
+}
