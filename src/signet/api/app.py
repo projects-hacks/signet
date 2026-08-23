@@ -62,6 +62,7 @@ def _decision_json(run_id: str, decision: Decision) -> dict[str, Any]:
                 "outcome": signal.outcome.value,
                 "detail": signal.detail,
                 "source": signal.source,
+                "evidence": dict(signal.evidence),
             }
             for signal in decision.signals
         ],

@@ -9,9 +9,10 @@ Adding a signal means adding a Check, not editing this module.
 
 from __future__ import annotations
 
-from collections.abc import Sequence
-from dataclasses import dataclass
+from collections.abc import Mapping, Sequence
+from dataclasses import dataclass, field
 from enum import Enum
+from typing import Any
 
 
 class Outcome(Enum):
@@ -38,10 +39,22 @@ CRITICAL_CHECKS: tuple[str, ...] = (
 
 @dataclass(frozen=True, slots=True)
 class Signal:
+    """One finding, and the evidence it rests on.
+
+    detail is the sentence a reader acts on. evidence is what the check actually
+    saw: the query it made, the answer that came back, the bytes it verified.
+    Keeping only the sentence made the product look like it was asserting things
+    rather than checking them, and a claim nobody can inspect is not evidence.
+
+    decide never reads evidence. The verdict is a function of outcomes alone, so
+    carrying the working cannot change what the working concluded.
+    """
+
     name: str
     outcome: Outcome
     detail: str
     source: str
+    evidence: Mapping[str, Any] = field(default_factory=dict)
 
 
 def _severity(signal: Signal) -> int:

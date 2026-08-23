@@ -168,6 +168,7 @@ def _encode(bundle: Bundle) -> dict[str, JsonValue]:
                 "outcome": signal.outcome.value,
                 "detail": signal.detail,
                 "source": signal.source,
+                "evidence": dict(signal.evidence),
             }
             for signal in bundle.signals
         ],
@@ -221,7 +222,17 @@ def _signal(raw: Any) -> Signal:
         outcome=_outcome(_text(raw, "outcome")),
         detail=_text(raw, "detail"),
         source=_text(raw, "source"),
+        evidence=_evidence(raw.get("evidence")),
     )
+
+
+def _evidence(raw: Any) -> Mapping[str, Any]:
+    """Absent evidence reads as none recorded, which is how older archives look."""
+    if raw is None:
+        return {}
+    if not isinstance(raw, dict):
+        raise EvidenceError("a signal's 'evidence' must be an object")
+    return dict(raw)
 
 
 def _optional_fields(raw: Any) -> Mapping[str, str] | None:

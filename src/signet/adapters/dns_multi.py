@@ -40,6 +40,11 @@ def _unquote(value: str) -> str:
     return "".join(part.strip('"') for part in parts)
 
 
+def _host(provider: str) -> str:
+    """The resolver's hostname, which is what a reader recognises."""
+    return provider.split("//", 1)[-1].split("/", 1)[0]
+
+
 class DohResolver:
     """Resolves through several providers and reports whether they agreed."""
 
@@ -57,9 +62,11 @@ class DohResolver:
 
     def lookup_txt(self, name: str) -> TxtLookup:
         seen: list[tuple[frozenset[str], bool]] = []
+        answers: dict[str, tuple[str, ...]] = {}
         for provider in self._providers:
             records, authenticated = self._query(provider, name)
             seen.append((frozenset(records), authenticated))
+            answers[_host(provider)] = records
 
         # A provider returning nothing has not contradicted one returning a key, it
         # has not caught up. Negative caching makes that the normal state for the
@@ -69,7 +76,13 @@ class DohResolver:
         # different keys, and withholding an answer cannot manufacture a signature.
         answered = [(records, validated) for records, validated in seen if records]
         if not answered:
-            return TxtLookup(name=name, records=(), dnssec_validated=False, resolvers_agreed=True)
+            return TxtLookup(
+                name=name,
+                records=(),
+                dnssec_validated=False,
+                resolvers_agreed=True,
+                answers=answers,
+            )
 
         distinct = {records for records, _ in answered}
         agreed = len(distinct) == 1
@@ -78,6 +91,7 @@ class DohResolver:
             records=tuple(sorted(next(iter(distinct)))) if agreed else (),
             dnssec_validated=agreed and all(validated for _, validated in answered),
             resolvers_agreed=agreed,
+            answers=answers,
         )
 
     def _query(self, provider: str, name: str) -> tuple[tuple[str, ...], bool]:

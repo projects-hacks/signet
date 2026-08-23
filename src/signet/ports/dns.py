@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from collections.abc import Mapping
+from dataclasses import dataclass, field
 from typing import Protocol
 
 
@@ -13,12 +14,18 @@ class TxtLookup:
     dnssec_validated records whether the answer arrived over a validated chain.
     It is advisory: adoption is partial, so an unsigned zone still verifies, and
     the evidence bundle records which it was.
+
+    answers keeps what each provider said separately. Agreement between
+    independent resolvers is the thing that makes a spoofed answer expensive, so
+    the reader should be able to see both sides of it rather than take the
+    agreement on trust.
     """
 
     name: str
     records: tuple[str, ...]
     dnssec_validated: bool
     resolvers_agreed: bool
+    answers: Mapping[str, tuple[str, ...]] = field(default_factory=dict)
 
 
 class DnsResolver(Protocol):
