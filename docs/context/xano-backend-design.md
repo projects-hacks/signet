@@ -66,11 +66,8 @@ of these and not the other way round.
    into an `Issuer` with flags, which is fine, but the endpoint must return
    enough to tell them apart.
 2. A verifier records a submission fingerprint and learns whether it is a
-   repeat. This is a check and set, not a read then write. Two verifiers
-   submitting the same document at the same instant must not both be told it is
-   new. A unique index on the fingerprint plus handling the conflict is the
-   correct shape; a read followed by an insert is a race and would let a
-   duplicated invoice pass twice.
+   repeat. See the section below, which replaces an earlier assumption that
+   turned out to rest on behaviour Xano does not document.
 3. Every run appends to the audit trail. Audit must never be able to fail a
    verification. If the append fails the verdict still stands, because a
    verdict that depends on logging is a verdict that goes down when logging
@@ -94,6 +91,55 @@ depend on it, and when the store is unreachable they must return UNKNOWN with a
 reason naming the outage, never PASS. Failing open on identity would let a
 lookalike through during an outage, which is exactly when an attacker would
 choose to try.
+
+### Duplicate detection, without depending on anything undocumented
+
+The first version of this section assumed a unique index plus a conflicting
+insert would give an atomic check and set. That assumption does not survive the
+documentation. Uniqueness can be declared, but what a conflicting insert
+returns is stated nowhere, no error type corresponds to a constraint violation,
+and the error object has no documented shape, so it cannot be caught and
+inspected against a spec either. Xano's own generated signup code reads, then
+checks a precondition, then inserts, which is a read then write race shipped as
+the idiomatic pattern.
+
+Their cache is the way out, and it is a better fit than the database anyway.
+Xano's data caching is Redis backed and exposes Increment Cache Value, which
+returns the incremented value. Redis increment on a missing key sets it to one
+and returns one, and it is a single command, so exactly one concurrent caller
+can ever receive one. That is the serialising primitive the check needs, and it
+rests on Redis behaviour rather than on Xano behaviour nobody has written down.
+
+Note that set if absent is not available. The Xano community has an open request
+for Redis SET NX, so increment is the only atomic claim primitive on offer.
+
+The check therefore runs in two layers, cache for atomicity and database for
+durability, because the cache is explicitly temporary and a restart resets it.
+
+1. Increment `seen:<fingerprint>`. Exactly one caller receives 1.
+2. A caller receiving more than 1 has lost the race or is looking at a genuine
+   repeat. Either way the answer is duplicate, and it returns without touching
+   the database.
+3. A caller receiving exactly 1 is alone, so the database read that follows has
+   no concurrent writer to race. If a row already exists the cache had been
+   reset and this is still a duplicate. If not, insert and report it as new.
+
+The race is closed at step 1, not at step 3. Step 3 is safe precisely because
+the increment already serialised everyone else out of it.
+
+Two supports around that:
+
+- Keep the unique index on the fingerprint as a database level backstop. If it
+  ever fires we have a bug, but the data stays correct while we find it.
+- Give the cache key no expiry, so eviction is the only way to fall through to
+  the database rather than the common case.
+
+One assumption remains and it is worth naming: that Xano's Increment Cache Value
+preserves Redis increment's atomicity. It is a single Redis command and their
+own documentation says the value is returned, so this is far safer than the
+assumption it replaces. It is still cheap to settle, and should be: fire two
+concurrent requests with one fingerprint and confirm exactly one is told the
+document is new.
 
 ### Enrolment
 

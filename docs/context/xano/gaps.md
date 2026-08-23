@@ -304,3 +304,37 @@ Everything else on this list is either answered, cosmetic, or has an obvious con
 3. `$error` inside `try_catch` has no documented shape, so even the catch-and-inspect escape hatch cannot be written against a specification.
 
 Which means the only documented way to detect a duplicate is the read-then-precondition pattern that Xano's own generated code uses, and that pattern is a race. A design that relies on check and set for duplicate detection is currently resting on an assumption, and it is a cheap one to test: one scratch table, one endpoint, two concurrent requests.
+
+## Addendum: the cache was not researched, and it answers the duplicate question
+
+The original brief for this reference did not ask about caching, so the earlier
+sections treat the unique index as the only route to a check and set. That was
+an incomplete search rather than a correct conclusion.
+
+Xano's data caching is Redis backed. The documented functions are Set, Get, Has,
+Delete, Increment, Decrement, several list operations, Get Cache Keys, and Rate
+Limit. Set takes a TTL in seconds where zero means never expire.
+
+**Increment Cache Value returns the incremented value.** That is the missing
+atomic primitive. Redis increment on a missing key sets it to one and returns
+one, in a single command, so exactly one concurrent caller can receive one.
+Duplicate detection can be serialised on that rather than on unique index
+conflict semantics nobody has documented.
+
+**Set if absent is not available.** There is an open community feature request
+asking for Redis SET NX support on Set Cache Value, so increment is currently
+the only atomic claim primitive.
+
+Still not documented, and worth settling by test rather than assumption:
+
+- Whether Xano's Increment preserves Redis atomicity under concurrent calls.
+  It is one Redis command, so this is likely, but likely is not measured.
+- Whether the cache is shared across instance workers or is per worker. If it
+  were per worker the increment would serialise only within one worker, which
+  would silently weaken the guarantee.
+- What Increment does to a key holding a non numeric value.
+- Eviction policy and whether a key with no TTL can still be evicted under
+  memory pressure.
+
+The second of those matters most. A per worker cache would make the whole design
+unsound, and nothing in the documentation states which it is.
