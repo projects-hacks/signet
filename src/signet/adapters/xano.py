@@ -10,9 +10,17 @@ Merkle work and the verdict stay in Python, where they are pure functions with a
 golden test suite, because a determinism claim you cannot run offline is not a
 claim worth making.
 
-Authentication is a shared secret in a header, checked by the function stack.
-Xano's own auth issues user tokens, which is the wrong shape here: the caller is
-a worker, not a person.
+Authentication is a shared secret sent as a bearer token, checked by one guard
+function every endpoint runs first. Xano's own auth issues user tokens, which is
+the wrong shape here because the caller is a worker rather than a person, but
+the bearer header is still the right carrier: it is the only documented way a
+function stack can read a caller supplied credential, through
+$env.$request_auth_token. A custom header would have to be parsed out of
+$http_headers, which is documented only as a text array.
+
+Absence is a 200 carrying null, never a 404. Xano answers 404 both for a record
+that is missing and for a route that was never built, and letting those wear the
+same costume is how an empty workspace passed for a working one.
 """
 
 from __future__ import annotations
@@ -25,7 +33,6 @@ import httpx
 from signet.errors import AdapterError
 from signet.ports.store import Issuer
 
-API_KEY_HEADER: Final = "X-Signet-Key"
 _TIMEOUT_SECONDS: Final = 20.0
 
 
@@ -34,17 +41,33 @@ _TIMEOUT_SECONDS: Final = 20.0
 _ROUTE_MISSING: Final = "Unable to locate request"
 
 
+def _cache_key(namespace: str, key: str) -> str:
+    """One column carries the namespace, so no composite unique index is needed.
+
+    A composite unique index is structurally expressible in XanoScript but no
+    source demonstrates one, and the correctness of the cache rests entirely on
+    that index holding.
+    """
+    return f"{namespace}:{key}"
+
+
 class XanoRecordStore:
     def __init__(self, base_url: str, api_key: str, client: httpx.Client | None = None) -> None:
         if not base_url or not api_key:
             raise ValueError("Xano requires an API group base URL and an API key")
         self._base_url = base_url.rstrip("/")
-        self._headers = {API_KEY_HEADER: api_key, "Accept": "application/json"}
+        self._headers = {
+            "Authorization": f"Bearer {api_key}",
+            "Accept": "application/json",
+        }
         self._client = client or httpx.Client(timeout=_TIMEOUT_SECONDS)
 
     def issuer(self, domain: str) -> Issuer | None:
-        body = self._request("GET", f"/issuer/{domain}", allow_missing=True)
-        return None if body is None else self._issuer(body, domain)
+        body = self._request("GET", "/issuer", params={"domain": domain})
+        # An absent record answers null, which arrives here as an empty body.
+        if not isinstance(body, dict) or not body:
+            return None
+        return self._issuer(body, domain)
 
     @staticmethod
     def _issuer(row: Mapping[str, Any], domain: str = "") -> Issuer:
@@ -73,20 +96,25 @@ class XanoRecordStore:
         body = self._request(
             "POST", "/submission", json={"fingerprint": fingerprint, "submitted_by": submitted_by}
         )
-        return bool(body.get("first_time", False))
+        existing = body.get("existing") if isinstance(body, dict) else None
+        return existing is None
 
     def cache_get(self, namespace: str, key: str) -> Mapping[str, object] | None:
-        body = self._request(
-            "GET", "/cache", params={"namespace": namespace, "key": key}, allow_missing=True
-        )
-        if body is None:
+        body = self._request("GET", "/cache", params={"key": _cache_key(namespace, key)})
+        if not isinstance(body, dict):
             return None
         value = body.get("value")
         return value if isinstance(value, dict) else None
 
     def cache_put(self, namespace: str, key: str, value: Mapping[str, object]) -> None:
         self._request(
-            "POST", "/cache", json={"namespace": namespace, "key": key, "value": dict(value)}
+            "POST",
+            "/cache",
+            json={
+                "namespace": namespace,
+                "key": _cache_key(namespace, key),
+                "value": dict(value),
+            },
         )
 
     def append_audit(self, run_id: str, event: str, detail: Mapping[str, object]) -> None:
@@ -116,8 +144,8 @@ class XanoRecordStore:
                 return None
         if response.status_code in (401, 403):
             raise AdapterError(
-                f"Xano rejected the request. Check that {API_KEY_HEADER} matches the value "
-                "the function stack expects."
+                "Xano rejected the request. Check that the bearer token matches the "
+                "signet_api_key environment variable the guard function compares against."
             )
         if not response.is_success:
             raise AdapterError(

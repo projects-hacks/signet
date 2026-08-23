@@ -11,7 +11,7 @@ from typing import Any
 import httpx
 import pytest
 
-from signet.adapters.xano import API_KEY_HEADER, XanoRecordStore
+from signet.adapters.xano import XanoRecordStore
 from signet.errors import AdapterError
 
 BASE = "https://x.xano.io/api:signet"
@@ -23,15 +23,16 @@ def store(handler: Any) -> XanoRecordStore:
     )
 
 
-def test_the_shared_secret_goes_out_on_every_call() -> None:
+def test_the_shared_secret_goes_out_as_a_bearer_token() -> None:
+    """The only documented way a function stack can read a caller's credential."""
     seen: dict[str, Any] = {}
 
     def handler(request: httpx.Request) -> httpx.Response:
-        seen["key"] = request.headers.get(API_KEY_HEADER)
-        return httpx.Response(404)
+        seen["key"] = request.headers.get("Authorization")
+        return httpx.Response(200, json=None)
 
     store(handler).issuer("bluebottle.com")
-    assert seen["key"] == "secret"
+    assert seen["key"] == "Bearer secret"
 
 
 def test_a_known_issuer_comes_back_whole() -> None:
@@ -58,7 +59,7 @@ def test_an_unknown_issuer_is_none_rather_than_an_error() -> None:
     """Most documents come from domains we have never enrolled. That is normal."""
 
     def handler(request: httpx.Request) -> httpx.Response:
-        return httpx.Response(404)
+        return httpx.Response(200, json=None)
 
     assert store(handler).issuer("stranger.com") is None
 
@@ -66,7 +67,7 @@ def test_an_unknown_issuer_is_none_rather_than_an_error() -> None:
 def test_a_first_submission_is_accepted() -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         assert request.url.path.endswith("/submission")
-        return httpx.Response(200, json={"first_time": True})
+        return httpx.Response(200, json={"existing": None})
 
     assert store(handler).record_submission("abc", "tester")
 
@@ -75,7 +76,7 @@ def test_a_repeat_submission_is_refused_by_the_database() -> None:
     """Uniqueness is the database's decision, not a read followed by a write."""
 
     def handler(request: httpx.Request) -> httpx.Response:
-        return httpx.Response(200, json={"first_time": False})
+        return httpx.Response(200, json={"existing": {"id": 7, "submitted_by": "someone"}})
 
     assert not store(handler).record_submission("abc", "tester")
 
@@ -95,7 +96,7 @@ def test_cache_round_trips() -> None:
 
 def test_a_cache_miss_is_none() -> None:
     def handler(request: httpx.Request) -> httpx.Response:
-        return httpx.Response(404)
+        return httpx.Response(200, json=None)
 
     assert store(handler).cache_get("brand", "Unknown") is None
 
@@ -112,11 +113,11 @@ def test_audit_events_carry_the_run_id() -> None:
     assert "certified" in seen["body"]
 
 
-def test_a_rejected_key_names_the_header_to_check() -> None:
+def test_a_rejected_key_names_what_to_compare_it_against() -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         return httpx.Response(403)
 
-    with pytest.raises(AdapterError, match=API_KEY_HEADER):
+    with pytest.raises(AdapterError, match="signet_api_key"):
         store(handler).record_submission("abc", "tester")
 
 
@@ -143,13 +144,14 @@ def test_a_missing_route_is_an_error_rather_than_a_missing_record() -> None:
         store.issuer("probe.invalid")
 
 
-def test_a_genuine_record_miss_is_still_none() -> None:
-    def handler(request: httpx.Request) -> httpx.Response:
-        return httpx.Response(404, json={"message": "no such issuer"})
+def test_any_404_is_a_missing_route_now_that_absence_is_a_200() -> None:
+    """Absence carries null with a 200, so a 404 can only mean the route is gone."""
 
-    store = XanoRecordStore(
-        "https://x.invalid/api:abc",
-        "key",
-        client=httpx.Client(transport=httpx.MockTransport(handler)),
-    )
-    assert store.issuer("probe.invalid") is None
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            404,
+            json={"code": "ERROR_CODE_NOT_FOUND", "message": "Unable to locate request."},
+        )
+
+    with pytest.raises(AdapterError, match="no endpoint"):
+        store(handler).issuer("probe.invalid")
