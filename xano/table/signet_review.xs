@@ -28,4 +28,5 @@ table signet_review {
     {type: "btree", field: [{name: "created_at", op: "asc"}]}
     {type: "btree", field: [{name: "run_id", op: "asc"}]}
   ]
+  guid = "rv5QoU1IL8UhJ7zlNO7kkBVzUmc"
 }

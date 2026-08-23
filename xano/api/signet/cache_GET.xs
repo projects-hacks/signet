@@ -24,4 +24,5 @@ query "cache" verb=GET {
   }
 
   response = $entry
+  guid = "gL-9M889hWgdz9VRLneLF6ItzUU"
 }

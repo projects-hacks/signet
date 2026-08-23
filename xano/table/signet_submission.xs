@@ -17,4 +17,5 @@ table signet_submission {
     {type: "btree|unique", field: [{name: "fingerprint", op: "asc"}]}
     {type: "btree", field: [{name: "created_at", op: "desc"}]}
   ]
+  guid = "_kUBWyGsOX0o8ASuo7J6VOghtbs"
 }

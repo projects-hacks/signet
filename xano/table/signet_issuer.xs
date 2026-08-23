@@ -17,4 +17,5 @@ table signet_issuer {
     {type: "btree|unique", field: [{name: "domain", op: "asc"}]}
     {type: "btree", field: [{name: "created_at", op: "desc"}]}
   ]
+  guid = "7g1Cm_kZERvUvIkOkPPP1v4EuvA"
 }

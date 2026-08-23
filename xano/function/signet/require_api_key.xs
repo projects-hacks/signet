@@ -22,4 +22,5 @@ function "Signet/require_api_key" {
   }
 
   response = null
+  guid = "GUB0iF9lBJuYuTScDB-JIQHWBao"
 }

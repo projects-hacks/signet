@@ -41,4 +41,5 @@ query "submission" verb=POST {
   }
 
   response = {existing: $existing}
+  guid = "VkrpxSd1ZO2QZ_bl2aASFGXnKg8"
 }

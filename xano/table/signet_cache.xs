@@ -21,4 +21,5 @@ table signet_cache {
     {type: "primary", field: [{name: "id"}]}
     {type: "btree|unique", field: [{name: "key", op: "asc"}]}
   ]
+  guid = "qEQ59qqGf0IbzeYgWt1Ods4Kq18"
 }

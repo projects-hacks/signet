@@ -23,4 +23,5 @@ query "issuer" verb=GET {
   }
 
   response = $issuer
+  guid = "vbMFknhfUo-R1dXyQSunS57Dt4Y"
 }

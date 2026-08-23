@@ -20,4 +20,5 @@ query "issuers" verb=GET {
   }
 
   response = {issuers: $issuers}
+  guid = "0JNYxFpivEs0XDKncvQBaWAFws4"
 }

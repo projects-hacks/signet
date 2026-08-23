@@ -54,4 +54,5 @@ query "cache" verb=POST {
   }
 
   response = null
+  guid = "X2TGHdiPftz5sy4GVqhcC49bIpc"
 }

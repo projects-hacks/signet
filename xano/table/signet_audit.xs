@@ -16,4 +16,5 @@ table signet_audit {
     {type: "btree", field: [{name: "run_id", op: "asc"}]}
     {type: "btree", field: [{name: "created_at", op: "desc"}]}
   ]
+  guid = "MyCrkp-6wkI1XnZmSmSy0AfbdrA"
 }
