@@ -47,11 +47,13 @@ def test_an_unmarked_document_is_unsigned_rather_than_refused(client: TestClient
     assert response.json()["verdict"] == "unsigned"
 
 
-def test_every_signal_reaches_the_caller(client: TestClient) -> None:
+def test_every_signal_reaches_the_caller_with_its_working(client: TestClient) -> None:
+    """A conclusion without the material behind it is an assertion, not evidence."""
     body = client.post("/api/verify", files={"file": ("scan.png", b"x")}).json()
     assert body["signals"]
     for signal in body["signals"]:
-        assert set(signal) == {"name", "outcome", "detail", "source"}
+        assert set(signal) == {"name", "outcome", "detail", "source", "evidence"}
+        assert isinstance(signal["evidence"], dict)
 
 
 def test_a_run_is_identified_so_a_verdict_can_be_traced(client: TestClient) -> None:
