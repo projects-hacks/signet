@@ -56,6 +56,18 @@ class Decision:
     signals: tuple[Signal, ...]
 
 
+def _every(signals: Sequence[Signal], name: str) -> bool:
+    """Whether every signal under this name passed, and there was at least one.
+
+    Reading one signal per name let a repeated name decide the verdict by
+    position. A bundle carrying signature UNKNOWN followed by signature PASS
+    certified, which matters because replay re-decides from a deserialised
+    archive that an attacker may have authored.
+    """
+    found = [signal for signal in signals if signal.name == name]
+    return bool(found) and all(signal.outcome is Outcome.PASS for signal in found)
+
+
 def decide(signals: Sequence[Signal]) -> Decision:
     """Reduce signals to one verdict.
 
@@ -65,24 +77,16 @@ def decide(signals: Sequence[Signal]) -> Decision:
     was available and nothing contradicted the document.
     """
     collected = tuple(signals)
-    by_name = {signal.name: signal for signal in collected}
 
     failures = [signal for signal in collected if signal.outcome is Outcome.FAIL]
     if failures:
         ranked = sorted(failures, key=_severity)
         return Decision(verdict=Verdict.FLAGGED, reason=ranked[0].detail, signals=collected)
 
-    signature = by_name.get("signature")
-    identity = by_name.get("identity")
-    if (
-        signature is not None
-        and signature.outcome is Outcome.PASS
-        and identity is not None
-        and identity.outcome is Outcome.PASS
-    ):
+    if _every(collected, "signature") and _every(collected, "identity"):
         return Decision(
             verdict=Verdict.CERTIFIED,
-            reason=signature.detail,
+            reason=next(s.detail for s in collected if s.name == "signature"),
             signals=collected,
         )
 

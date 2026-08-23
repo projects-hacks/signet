@@ -10,14 +10,24 @@ from __future__ import annotations
 import hashlib
 from collections.abc import Sequence
 from dataclasses import dataclass
+from typing import Final
+
+# Leaves and internal nodes are hashed under different prefixes. Without that,
+# sha256(payload) and sha256(left + right) live in one space, so a sixty four
+# byte leaf whose bytes happen to be two sibling hashes is indistinguishable
+# from the node above them. An attacker who can choose a document then presents
+# an internal node as a leaf and proves inclusion of something never issued.
+# This is the second preimage attack RFC 6962 separates domains to defeat.
+_LEAF_PREFIX: Final = b"\x00"
+_NODE_PREFIX: Final = b"\x01"
 
 
 def leaf_hash(payload: bytes) -> bytes:
-    return hashlib.sha256(payload).digest()
+    return hashlib.sha256(_LEAF_PREFIX + payload).digest()
 
 
 def _pair_hash(left: bytes, right: bytes) -> bytes:
-    return hashlib.sha256(left + right).digest()
+    return hashlib.sha256(_NODE_PREFIX + left + right).digest()
 
 
 @dataclass(frozen=True, slots=True)
@@ -55,16 +65,22 @@ class MerkleTree:
         return InclusionProof(steps=tuple(steps))
 
 
-def build_tree(leaves: Sequence[bytes]) -> MerkleTree:
-    """Build a tree over leaf hashes.
+def build_tree(payloads: Sequence[bytes]) -> MerkleTree:
+    """Build a tree over document payloads, hashing each one as a leaf here.
+
+    Taking payloads rather than hashes is the point. When this took hashes it
+    could not tell a leaf from an internal node, both being thirty two opaque
+    bytes, so a caller could pass the root of a subtree as a leaf and produce a
+    tree of a different shape with an identical root. Hashing here makes that
+    unrepresentable rather than merely discouraged.
 
     Raises ValueError on an empty sequence: a batch with no documents has no root
     to publish, and silently returning a zero hash would make that indistinguishable
     from a real one.
     """
-    if not leaves:
+    if not payloads:
         raise ValueError("cannot build a tree over zero leaves")
-    layers: list[tuple[bytes, ...]] = [tuple(leaves)]
+    layers: list[tuple[bytes, ...]] = [tuple(leaf_hash(payload) for payload in payloads)]
     while len(layers[-1]) > 1:
         current = layers[-1]
         nxt = [
@@ -75,8 +91,8 @@ def build_tree(leaves: Sequence[bytes]) -> MerkleTree:
     return MerkleTree(layers=tuple(layers))
 
 
-def verify_inclusion(leaf: bytes, proof: InclusionProof, root: bytes) -> bool:
-    computed = leaf
+def verify_inclusion(payload: bytes, proof: InclusionProof, root: bytes) -> bool:
+    computed = leaf_hash(payload)
     for sibling_on_right, sibling in proof.steps:
         computed = (
             _pair_hash(computed, sibling) if sibling_on_right else _pair_hash(sibling, computed)

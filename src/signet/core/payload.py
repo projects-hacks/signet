@@ -75,7 +75,11 @@ def canonicalize(fields: Mapping[str, str]) -> bytes:
         raise PayloadError(f"payload missing required field(s): {', '.join(sorted(missing))}")
     if any(not key for key in fields):
         raise PayloadError("payload contains an empty field key")
-    pairs = (f"{key}{PAIR_SEPARATOR}{_escape(fields[key])}" for key in sorted(fields))
+    # The key is escaped for the same reason the value is. Escaping only the
+    # value let a single field keyed "amt=14.75;bal" render the same bytes as two
+    # fields amt and bal, so one signature covered two different meanings. That
+    # is the forgery this whole format exists to prevent.
+    pairs = (f"{_escape(key)}{PAIR_SEPARATOR}{_escape(fields[key])}" for key in sorted(fields))
     return FIELD_SEPARATOR.join(pairs).encode("utf-8")
 
 
@@ -91,9 +95,9 @@ def parse(raw: str | bytes) -> CanonicalPayload:
         key, separator, value = chunk.partition(PAIR_SEPARATOR)
         if not separator or not key:
             raise PayloadError(f"malformed field: {chunk!r}")
-        if key in fields:
-            raise PayloadError(f"duplicate field: {key}")
-        fields[key] = _unescape(value)
+        if _unescape(key) in fields:
+            raise PayloadError(f"duplicate field: {_unescape(key)}")
+        fields[_unescape(key)] = _unescape(value)
     missing = REQUIRED_FIELDS - fields.keys()
     if missing:
         raise PayloadError(f"payload missing required field(s): {', '.join(sorted(missing))}")

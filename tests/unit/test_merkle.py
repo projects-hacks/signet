@@ -1,10 +1,10 @@
 import pytest
 
-from signet.core.merkle import build_tree, leaf_hash, verify_inclusion
+from signet.core.merkle import build_tree, verify_inclusion
 
 
 def _leaves(count: int) -> list[bytes]:
-    return [leaf_hash(f"document-{i}".encode()) for i in range(count)]
+    return [f"document-{i}".encode() for i in range(count)]
 
 
 @pytest.mark.parametrize("count", [1, 2, 3, 8, 9, 1024])
@@ -18,7 +18,7 @@ def test_every_leaf_proves_inclusion(count: int) -> None:
 def test_a_forged_leaf_does_not_prove_inclusion() -> None:
     leaves = _leaves(64)
     tree = build_tree(leaves)
-    assert not verify_inclusion(leaf_hash(b"forged"), tree.proof(7), tree.root)
+    assert not verify_inclusion(b"forged", tree.proof(7), tree.root)
 
 
 def test_proof_grows_logarithmically() -> None:
