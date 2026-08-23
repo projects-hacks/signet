@@ -35,7 +35,15 @@ def _b32(raw: bytes) -> str:
 
 def _unb32(text: str) -> bytes:
     padded = text + "=" * (-len(text) % 8)
-    return base64.b32decode(padded)
+    raw = base64.b32decode(padded)
+    # A 64 byte signature leaves three spare bits in the final base32 character,
+    # so eight different strings decode to the same signature. Re-encoding pins a
+    # signature to one printed form. Without it a single issued document has many
+    # equally valid marks, and anything that dedupes, revokes or audits by mark
+    # text can be walked straight past with a mark it has never seen.
+    if _b32(raw) != text:
+        raise ValueError(f"non-canonical base32: {text!r}")
+    return raw
 
 
 def encode_mark(payload_bytes: bytes, signature: bytes) -> str:
@@ -84,7 +92,15 @@ def decode_mark(text: str) -> Mark:
 
 
 def format_locator(issuer: str, document_id: str) -> str:
-    """The human readable fallback printed beneath the code."""
+    """The human readable fallback printed beneath the code.
+
+    Raises MarkError when the issuer holds the separator. Reading splits at the
+    first one so the document id may hold it, and an issuer is a domain, which
+    never does. Accepting one printed the same locator for bluebottle.com/x with
+    R-1 and for bluebottle.com with x/R-1, so the fallback named two documents.
+    """
+    if "/" in issuer:
+        raise MarkError(f"malformed locator: issuer {issuer!r} holds the separator")
     return f"{issuer}/{document_id}"
 
 

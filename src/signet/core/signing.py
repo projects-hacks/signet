@@ -68,11 +68,18 @@ def decode_public_key(record: str) -> bytes | None:
     Returns None rather than raising: a domain may publish many TXT records and
     finding an unrelated one is normal, not an error.
     """
-    tags = dict(
-        (part.split("=", 1)[0].strip(), part.split("=", 1)[1].strip())
-        for part in record.split(";")
-        if "=" in part
-    )
+    tags: dict[str, str] = {}
+    for part in record.split(";"):
+        name, separator, value = part.partition("=")
+        if not separator:
+            continue
+        # A repeated tag used to resolve to the last one, so appending a second
+        # p= to a record replaced the domain's key with the appender's. Whoever
+        # can add a string to the zone then signs documents that verify as the
+        # issuer's own. A record that says two things is refused, not resolved.
+        if name.strip() in tags:
+            return None
+        tags[name.strip()] = value.strip()
     if tags.get("v") != DNS_KEY_VERSION or tags.get("k") != DNS_KEY_ALGORITHM:
         return None
     encoded = tags.get("p")
@@ -81,5 +88,11 @@ def decode_public_key(record: str) -> bytes | None:
     try:
         key = base64.b64decode(encoded, validate=True)
     except ValueError:
+        return None
+    # Base64 leaves spare bits in the final character, so a key has several
+    # decodings unless the record is pinned to the one this package writes. A
+    # second published form of the same key defeats any comparison of the record
+    # itself, which is how rotation and pinning notice a key they did not expect.
+    if base64.b64encode(key).decode("ascii") != encoded:
         return None
     return key if len(key) == 32 else None
