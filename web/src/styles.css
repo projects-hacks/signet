@@ -1,56 +1,49 @@
-/* Signet.
-   The subject is security printing: a signet ring pressed into wax, guilloche
-   rosettes, intaglio, cancellation marks. Light is paper. Dark is the same
-   document under ultraviolet, which is how a security document is really
-   inspected, so the ink turns luminous rather than the page turning grey. */
+/* The examination record.
+   Cool paper with a green bias rather than the warm cream that every generated
+   page reaches for. The three semantic colours are also the stamp colour, so
+   the boldest mark on the page carries the verdict instead of decorating it. */
 
 :root {
-  --paper: #e7e9e2;
-  --paper-deep: #dcdfd6;
-  --ink: #12211c;
-  --ink-soft: #4a5b53;
-  --rule: #a3ada3;
-  --rule-faint: #c2cabf;
-  --seal: #1f4d3d;
-  --struck: #8e2a1f;
-  --gold: #8a6a1f;
-  --glow: 0;
+  --paper: #f1f4f1;
+  --sheet: #fbfcfa;
+  --ink: #14201e;
+  --muted: #5c6b66;
+  --rule: #c6d0c8;
 
-  --serif: Spectral, "Iowan Old Style", Georgia, serif;
-  --stamp: "Saira Condensed", "Arial Narrow", sans-serif;
-  --mono: "Spline Sans Mono", ui-monospace, "SF Mono", monospace;
+  --verify: #1b6b57;
+  --doubt: #9a6a12;
+  --refuse: #7e2b36;
 
-  --measure: 64ch;
-  --gap: clamp(1.1rem, 2.4vw, 2rem);
-  --bay: clamp(3rem, 9vw, 7rem);
+  --display: "Saira Condensed", "Helvetica Neue", Arial, sans-serif;
+  --body: Spectral, Georgia, "Times New Roman", serif;
+  --data: "Spline Sans Mono", ui-monospace, "SF Mono", Menlo, monospace;
+
+  --measure: 66ch;
+  --step: clamp(0.75rem, 0.6rem + 0.5vw, 1rem);
 }
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --paper: #0a0f0d;
-    --paper-deep: #060a09;
-    --ink: #d8e4dc;
-    --ink-soft: #7f948a;
-    --rule: #2a3a33;
-    --rule-faint: #1a2621;
-    --seal: #3fe0a8;
-    --struck: #ff6a4d;
-    --gold: #e0b84a;
-    --glow: 1;
+    --paper: #101715;
+    --sheet: #17201d;
+    --ink: #e6ece7;
+    --muted: #8fa39b;
+    --rule: #2b3833;
+    --verify: #5fbc9f;
+    --doubt: #d3a047;
+    --refuse: #d98a94;
   }
 }
 
 :root[data-theme="dark"] {
-  --paper: #0a0f0d;
-  --paper-deep: #060a09;
-  --ink: #d8e4dc;
-  --ink-soft: #7f948a;
-  --rule: #2a3a33;
-  --rule-faint: #1a2621;
-  --seal: #3fe0a8;
-  --struck: #ff6a4d;
-  --gold: #e0b84a;
-  --glow: 1;
+  --paper: #101715;
+  --sheet: #17201d;
+  --ink: #e6ece7;
+  --muted: #8fa39b;
+  --rule: #2b3833;
+  --verify: #5fbc9f;
+  --doubt: #d3a047;
+  --refuse: #d98a94;
 }
 
 * { box-sizing: border-box; }
@@ -59,274 +52,276 @@ body {
   margin: 0;
   background: var(--paper);
   color: var(--ink);
-  font-family: var(--serif);
-  font-size: clamp(1rem, 0.96rem + 0.2vw, 1.09rem);
-  line-height: 1.62;
+  font-family: var(--body);
+  font-size: clamp(1rem, 0.96rem + 0.2vw, 1.0625rem);
+  line-height: 1.6;
   -webkit-font-smoothing: antialiased;
 }
 
-h1, h2, h3, p, ul, ol, figure { margin: 0; }
-ul, ol { padding: 0; list-style: none; }
-a { color: inherit; }
-
-.wrap { width: min(64rem, 100% - clamp(1.6rem, 6vw, 5rem)); margin-inline: auto; }
-.cap {
-  font-family: var(--stamp);
+.label {
+  font-family: var(--display);
   font-weight: 500;
-  font-size: 0.72rem;
-  letter-spacing: 0.2em;
-  text-transform: uppercase;
-  color: var(--ink-soft);
-}
-.mono { font-family: var(--mono); font-size: 0.84rem; }
-
-/* Masthead, carried on every view. */
-.plate {
-  display: flex;
-  align-items: baseline;
-  gap: 1rem;
-  padding: 1.4rem 0 1.1rem;
-  border-bottom: 2px solid var(--ink);
-}
-.plate__mark {
-  font-family: var(--stamp);
-  font-weight: 700;
-  font-size: clamp(1.4rem, 1.1rem + 1.1vw, 1.9rem);
+  font-size: 0.8125rem;
   letter-spacing: 0.16em;
   text-transform: uppercase;
-  text-decoration: none;
-}
-.plate__gap { flex: 1; height: 1px; background: var(--rule); }
-.plate__nav { display: flex; gap: 1.3rem; }
-.plate__nav a { text-decoration: none; }
-.plate__nav a[aria-current="page"] { border-bottom: 2px solid var(--seal); }
-
-.foot {
-  margin-top: var(--bay);
-  padding: 1.6rem 0 2.6rem;
-  border-top: 1px solid var(--rule-faint);
-  font-size: 0.85rem;
-  color: var(--ink-soft);
+  color: var(--muted);
 }
 
-/* Landing. The hero is the claim itself, set as a printed statement. */
-.hero { padding: clamp(3rem, 10vw, 6.5rem) 0 var(--bay); }
-.hero__lede {
-  max-width: 22ch;
-  font-size: clamp(2.1rem, 1.1rem + 4.6vw, 4.1rem);
-  font-weight: 300;
-  line-height: 1.03;
-  letter-spacing: -0.015em;
-  text-wrap: balance;
-}
-.hero__lede em { font-style: italic; color: var(--seal); }
-.hero__sub {
-  max-width: var(--measure);
-  margin-top: 1.6rem;
-  font-size: clamp(1.05rem, 1rem + 0.4vw, 1.24rem);
-  color: var(--ink-soft);
-}
-.hero__act { display: flex; flex-wrap: wrap; gap: 0.9rem; margin-top: 2.2rem; }
+.mono { font-family: var(--data); font-size: 0.8125rem; }
 
-.press {
-  display: inline-block;
-  font-family: var(--stamp);
-  font-weight: 700;
-  font-size: 0.94rem;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-  text-decoration: none;
-  color: var(--paper);
-  background: var(--ink);
-  border: 1px solid var(--ink);
-  padding: 0.75rem 1.7rem;
-  cursor: pointer;
-}
-.press--ghost { color: var(--ink); background: transparent; }
-.press[disabled] { opacity: 0.32; cursor: not-allowed; }
+/* ── masthead ─────────────────────────────────────────────── */
 
-/* The two numbers that make the case. Set as printed figures, not stat cards. */
-.figures {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
-  gap: var(--gap);
-  padding: var(--bay) 0;
-  border-top: 1px solid var(--rule-faint);
-  border-bottom: 1px solid var(--rule-faint);
-}
-.figure__n {
-  font-family: var(--stamp);
-  font-weight: 700;
-  font-size: clamp(2.6rem, 1.5rem + 4vw, 4rem);
-  line-height: 1;
-  letter-spacing: -0.01em;
-}
-.figure--bad .figure__n { color: var(--struck); }
-.figure--odd .figure__n { color: var(--gold); }
-.figure p { margin-top: 0.6rem; max-width: 34ch; color: var(--ink-soft); }
-
-/* How it works, as three struck steps. Order is real here: publish, sign, check. */
-.steps { padding: var(--bay) 0; display: grid; gap: var(--gap); }
-.steps__list { display: grid; grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr)); gap: var(--gap); }
-.step { display: grid; gap: 0.5rem; align-content: start; }
-.step__i {
-  font-family: var(--mono);
-  font-size: 0.8rem;
-  color: var(--seal);
-}
-.step h3 { font-size: 1.15rem; font-weight: 600; }
-.step p { color: var(--ink-soft); }
-
-.proof { padding: var(--bay) 0; border-top: 1px solid var(--rule-faint); }
-.proof h2 { font-size: clamp(1.5rem, 1.1rem + 1.6vw, 2.1rem); font-weight: 300; max-width: 24ch; }
-.proof p { max-width: var(--measure); margin-top: 1rem; color: var(--ink-soft); }
-.slab {
-  margin-top: 1.6rem;
-  padding: 1.1rem 1.3rem;
-  background: var(--paper-deep);
-  border-left: 3px solid var(--seal);
-  font-family: var(--mono);
-  font-size: 0.84rem;
-  overflow-x: auto;
-  white-space: pre;
-}
-
-/* The examiner. */
-.counter { padding: var(--gap) 0; border-bottom: 1px solid var(--rule-faint); display: grid; gap: var(--gap); }
-.counter__row { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) auto; align-items: end; gap: var(--gap); }
-.field { display: grid; gap: 0.45rem; min-width: 0; }
-
-.drop, .brand {
-  font: inherit;
-  color: inherit;
-  background: transparent;
-  border: 0;
+.masthead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1.25rem clamp(1rem, 5vw, 3rem);
   border-bottom: 1px solid var(--rule);
-  padding: 0.55rem 0;
-  text-align: left;
-  width: 100%;
-}
-.drop { display: grid; gap: 0.15rem; cursor: pointer; }
-.drop__hint { font-size: 0.78rem; color: var(--ink-soft); }
-.drop[data-over="true"] { border-bottom-color: var(--seal); }
-.drop[data-has="true"] .drop__name { font-weight: 600; }
-.brand::placeholder { color: var(--ink-soft); opacity: 0.6; }
-
-:where(.drop, .brand, .press, a):focus-visible { outline: 2px solid var(--seal); outline-offset: 3px; }
-
-.blank {
-  padding: clamp(3rem, 9vw, 5.5rem) 0;
-  text-align: center;
-  font-style: italic;
-  font-weight: 300;
-  font-size: 1.15rem;
-  color: var(--ink-soft);
+  flex-wrap: wrap;
 }
 
-/* The impression. */
-.impression { position: relative; display: grid; place-items: center; padding: clamp(1.6rem, 5vw, 3rem) 0 1rem; }
-.impression canvas { width: min(19rem, 62vw); height: auto; filter: drop-shadow(0 0 calc(var(--glow) * 14px) var(--halo, var(--seal))); }
-.impression__word {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  translate: -50% -50%;
-  rotate: -4deg;
-  font-family: var(--stamp);
+.wordmark {
+  font-family: var(--display);
   font-weight: 700;
-  font-size: clamp(1.15rem, 0.7rem + 2.1vw, 1.85rem);
+  font-size: 1.375rem;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  margin: 0;
+}
+
+.record { display: flex; flex-direction: column; gap: 0; }
+
+/* ── movement one: the document ───────────────────────────── */
+
+.examination {
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
+  gap: clamp(1.5rem, 4vw, 3.5rem);
+  align-items: start;
+  padding: clamp(1.75rem, 5vw, 3.5rem) clamp(1rem, 5vw, 3rem);
+}
+
+@media (max-width: 860px) {
+  .examination { grid-template-columns: minmax(0, 1fr); }
+}
+
+.sheet {
+  position: relative;
+  background: var(--sheet);
+  border: 1px solid var(--rule);
+  box-shadow: 0 1px 0 var(--rule), 0 18px 40px -28px rgb(20 32 30 / 45%);
+}
+
+.sheet img { display: block; width: 100%; height: auto; }
+
+.sheet-empty {
+  aspect-ratio: 1 / 1.294;
+  display: grid;
+  place-content: center;
+  gap: 0.5rem;
+  text-align: center;
+  padding: 2rem;
+  color: var(--muted);
+}
+
+/* A field the extractor read, drawn where it read it. */
+.region {
+  position: absolute;
+  border: 1.5px solid var(--verify);
+  background: color-mix(in srgb, var(--verify) 8%, transparent);
+  pointer-events: none;
+}
+.region[data-agrees="false"] {
+  border-color: var(--refuse);
+  background: color-mix(in srgb, var(--refuse) 14%, transparent);
+}
+.region[data-uncertain="true"] {
+  border-color: var(--doubt);
+  border-style: dashed;
+  background: color-mix(in srgb, var(--doubt) 10%, transparent);
+}
+
+.region-tag {
+  position: absolute;
+  top: -0.1rem;
+  left: 0;
+  transform: translateY(-100%);
+  font-family: var(--display);
+  font-size: 0.625rem;
   letter-spacing: 0.14em;
   text-transform: uppercase;
+  padding: 0 0.25rem;
+  color: var(--sheet);
+  background: var(--verify);
   white-space: nowrap;
 }
-.result[data-verdict="certified"] { --halo: var(--seal); }
-.result[data-verdict="flagged"] { --halo: var(--struck); }
-.result[data-verdict="unsigned"] { --halo: var(--gold); }
-.result[data-verdict="certified"] .impression__word { color: var(--seal); }
-.result[data-verdict="flagged"] .impression__word { color: var(--struck); }
-.result[data-verdict="unsigned"] .impression__word { color: var(--gold); }
-.result__reason { max-width: var(--measure); margin: 0.5rem auto 0; text-align: center; font-size: 1.06rem; text-wrap: balance; }
+.region[data-agrees="false"] .region-tag { background: var(--refuse); }
+.region[data-uncertain="true"] .region-tag { background: var(--doubt); }
 
-/* Findings as a ruled ledger, provenance kept in the margin. */
-.ledger { margin-top: var(--gap); }
-.ledger li {
-  display: grid;
-  grid-template-columns: 1.5rem minmax(0, 1fr) auto;
-  gap: 0.9rem;
-  align-items: baseline;
-  padding: 0.72rem 0;
-  border-top: 1px solid var(--rule-faint);
+/* ── the stamp: the one bold thing ────────────────────────── */
+
+.stamp {
+  position: absolute;
+  right: clamp(0.5rem, 4%, 2rem);
+  bottom: clamp(1rem, 8%, 3rem);
+  transform: rotate(-4.5deg);
+  padding: 0.45rem 1.1rem 0.3rem;
+  border: 3px double currentColor;
+  color: var(--verdict, var(--verify));
+  opacity: 0.9;
+  mix-blend-mode: multiply;
+  animation: press 200ms cubic-bezier(0.2, 0.9, 0.3, 1.2) both;
 }
-.ledger li:last-child { border-bottom: 1px solid var(--rule-faint); }
-.ledger__glyph { font-family: var(--stamp); font-weight: 700; font-size: 1.05rem; }
-.ledger li[data-outcome="pass"] .ledger__glyph { color: var(--seal); }
-.ledger li[data-outcome="fail"] .ledger__glyph { color: var(--struck); }
-.ledger li[data-outcome="unknown"] .ledger__glyph { color: var(--gold); }
-.ledger__what b { font-weight: 600; }
-.ledger__what span { display: block; color: var(--ink-soft); font-size: 0.95rem; }
-.ledger__from { font-family: var(--mono); font-size: 0.72rem; color: var(--ink-soft); white-space: nowrap; }
 
-.trace { margin-top: var(--gap); font-size: 0.85rem; color: var(--ink-soft); }
+@media (prefers-color-scheme: dark) {
+  .stamp { mix-blend-mode: screen; }
+}
 
-@media (max-width: 46rem) {
-  .counter__row { grid-template-columns: 1fr; }
-  .ledger li { grid-template-columns: 1.4rem minmax(0, 1fr); }
-  .ledger__from { grid-column: 2; }
+.stamp-verdict {
+  display: block;
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: clamp(1.5rem, 5vw, 2.5rem);
+  letter-spacing: 0.22em;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.stamp-issuer {
+  display: block;
+  font-family: var(--data);
+  font-size: 0.625rem;
+  letter-spacing: 0.05em;
+  text-align: center;
+  margin-top: 0.3rem;
+  opacity: 0.85;
+}
+
+@keyframes press {
+  from { transform: rotate(-4.5deg) scale(1.18); opacity: 0; }
+  to   { transform: rotate(-4.5deg) scale(1); opacity: 0.9; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+  .stamp { animation: none; }
 }
 
-/* The working. A finding is a claim; this is the material it rests on, set
-   smaller and in the machine face because it is machine truth, not prose. */
-.working { margin-top: 0.55rem; }
+/* ── the finding beside the document ──────────────────────── */
 
-.working summary {
-  font-family: var(--stamp);
-  font-size: 0.68rem;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-  color: var(--ink-soft);
+.finding { display: flex; flex-direction: column; gap: 1.25rem; }
+.finding-reason {
+  font-size: clamp(1.25rem, 1rem + 1.2vw, 1.875rem);
+  line-height: 1.25;
+  margin: 0;
+  text-wrap: balance;
+  font-weight: 400;
+}
+
+.dropzone {
+  border: 1px dashed var(--rule);
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  padding: 1.25rem;
   cursor: pointer;
-  width: max-content;
-  border-bottom: 1px dotted var(--rule);
-  padding-bottom: 1px;
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
 }
-.working summary::marker { content: ""; }
-.working[open] summary { color: var(--seal); border-bottom-color: var(--seal); }
-.working summary:focus-visible { outline: 2px solid var(--seal); outline-offset: 3px; }
+.dropzone:hover, .dropzone:focus-visible { border-color: var(--ink); }
+.dropzone[data-over="true"] { border-color: var(--verify); border-style: solid; }
 
-.ev {
+.brand-field { display: flex; flex-direction: column; gap: 0.35rem; }
+.brand-field input {
+  font: inherit;
+  font-family: var(--data);
+  padding: 0.5rem 0.65rem;
+  color: var(--ink);
+  background: var(--sheet);
+  border: 1px solid var(--rule);
+}
+.brand-field input:focus-visible { outline: 2px solid var(--ink); outline-offset: 1px; }
+
+/* ── movement two: the working ────────────────────────────── */
+
+.working {
+  border-top: 1px solid var(--rule);
+  padding: clamp(1.75rem, 5vw, 3rem) clamp(1rem, 5vw, 3rem);
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.check {
   display: grid;
-  gap: 0.5rem;
-  margin-top: 0.7rem;
-  padding: 0.85rem 1rem;
-  background: var(--paper);
-  border-left: 2px solid var(--rule);
+  grid-template-columns: 1.5rem 9rem minmax(0, 1fr);
+  gap: 0 1rem;
+  padding: 1rem 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--rule) 55%, transparent);
+  align-items: baseline;
 }
 
-.ev__row { display: grid; grid-template-columns: 8.5rem minmax(0, 1fr); gap: 0.8rem; }
+@media (max-width: 700px) {
+  .check { grid-template-columns: 1.5rem minmax(0, 1fr); }
+  .check .check-name { grid-column: 2; }
+  .check .check-body { grid-column: 2; }
+}
 
-.ev__k {
-  font-family: var(--stamp);
-  font-size: 0.66rem;
-  letter-spacing: 0.16em;
+.check-outcome {
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: 1rem;
+  line-height: 1.5;
+}
+.check-outcome[data-outcome="pass"] { color: var(--verify); }
+.check-outcome[data-outcome="fail"] { color: var(--refuse); }
+.check-outcome[data-outcome="unknown"] { color: var(--doubt); }
+
+.check-name {
+  font-family: var(--display);
+  font-weight: 500;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: var(--ink-soft);
-  padding-top: 0.2rem;
+  font-size: 0.8125rem;
+  color: var(--muted);
 }
 
-.ev__v { font-family: var(--mono); font-size: 0.76rem; min-width: 0; }
-.ev__v code { display: block; overflow-wrap: anywhere; }
-.ev__bytes { color: var(--ink); }
+.check-body { display: flex; flex-direction: column; gap: 0.5rem; min-width: 0; }
+.check-detail { margin: 0; max-width: var(--measure); }
 
-.ev__answer { display: block; margin-bottom: 0.35rem; }
-.ev__answer b { display: block; font-family: var(--stamp); font-size: 0.7rem; letter-spacing: 0.1em; color: var(--ink-soft); font-weight: 500; }
-.ev__none { color: var(--gold); }
-.ev__agree { color: var(--seal); }
-.ev__disagree { color: var(--struck); }
-
-@media (max-width: 46rem) {
-  .ev__row { grid-template-columns: 1fr; gap: 0.2rem; }
+.exchange {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 0.15rem 0.75rem;
+  font-family: var(--data);
+  font-size: 0.75rem;
+  color: var(--muted);
+  overflow-x: auto;
 }
+.exchange dt { white-space: nowrap; }
+.exchange dd { margin: 0; overflow-wrap: anywhere; color: var(--ink); }
+
+/* ── movement three: check it yourself ────────────────────── */
+
+.selfcheck {
+  border-top: 1px solid var(--rule);
+  padding: clamp(1.75rem, 5vw, 3rem) clamp(1rem, 5vw, 3rem) clamp(3rem, 7vw, 5rem);
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+.selfcheck p { margin: 0; max-width: var(--measure); color: var(--muted); }
+.command {
+  font-family: var(--data);
+  font-size: 0.8125rem;
+  background: var(--sheet);
+  border: 1px solid var(--rule);
+  padding: 0.75rem 0.9rem;
+  overflow-x: auto;
+  white-space: pre;
+  color: var(--ink);
+}
+
+.working-note { color: var(--muted); margin: 0 0 0.5rem; max-width: var(--measure); }

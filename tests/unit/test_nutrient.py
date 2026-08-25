@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 import json
+from io import BytesIO
 from typing import Any
 
 import httpx
 import pytest
+from PIL import Image
 
 from signet.adapters.nutrient import NutrientClient, NutrientExtractor
 from signet.errors import AdapterError
@@ -47,14 +49,37 @@ def extract(handler: Any) -> Any:
     return NutrientExtractor(client(handler)).extract(b"%PDF", "application/pdf")
 
 
-def test_a_cited_field_carries_its_value_confidence_and_box() -> None:
+def test_a_cited_field_carries_its_value_and_confidence() -> None:
     extraction = extract(responder({"iban": cited("GB29 NWBK 6016 1331 9268 19", 0.95)}))
     field = extraction.by_name()["iban"]
     assert field.value == "GB29 NWBK 6016 1331 9268 19"
     assert field.confidence == pytest.approx(0.95)
     assert field.page == 0
-    assert field.box is not None
-    assert (field.box.left, field.box.top) == (300.0, 247.0)
+
+
+def test_a_box_is_a_fraction_of_the_page() -> None:
+    """Nutrient reports pixels. A reviewer's screen is a different size."""
+    page = BytesIO()
+    Image.new("RGB", (600, 800), "white").save(page, format="PNG")
+    extraction = NutrientExtractor(client(responder({"iban": cited("GB29", 0.95)}))).extract(
+        page.getvalue(), "image/png"
+    )
+
+    box = extraction.by_name()["iban"].box
+    assert box is not None
+    # The fixture cites x 300, y 247 on a 600 by 800 page.
+    assert box.left == pytest.approx(0.5)
+    assert box.top == pytest.approx(0.30875)
+
+
+def test_a_box_we_cannot_place_is_dropped_rather_than_guessed() -> None:
+    """Nutrient reports a PDF in points and nothing here reads PDF page size.
+
+    A missing box costs a reviewer a highlight. A wrong one points confidently
+    at the wrong part of the document, which is worse than not pointing.
+    """
+    field = extract(responder({"iban": cited("GB29", 0.95)})).by_name()["iban"]
+    assert field.box is None
 
 
 def test_confidence_is_not_rescaled() -> None:

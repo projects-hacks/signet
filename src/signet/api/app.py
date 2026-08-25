@@ -137,6 +137,8 @@ def create_app(
         Route("/api/health", health, methods=["GET"]),
         Route("/api/verify", verify, methods=["POST"]),
     ]
+    # Mounted last and only when built, so the API keeps answering during a
+    # frontend rebuild rather than the whole app failing to start.
     if static_root is not None and static_root.is_dir():
         routes.append(Mount("/", app=StaticFiles(directory=static_root, html=True), name="web"))
 

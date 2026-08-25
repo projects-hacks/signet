@@ -18,6 +18,15 @@ from typing import Protocol
 
 @dataclass(frozen=True, slots=True)
 class BoundingBox:
+    """Where on the page a value was read, as a fraction of the page, 0 to 1.
+
+    Fractions rather than the extractor's own units, which are page pixels for
+    an image and points for a PDF and documented as neither. A reviewer's screen
+    is a third size again, so anything absolute has to be converted by whoever
+    draws it, and a caller that guesses the unit draws a box across the whole
+    window. The conversion belongs once, in the adapter that knows the document.
+    """
+
     left: float
     top: float
     width: float

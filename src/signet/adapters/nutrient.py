@@ -29,9 +29,11 @@ from __future__ import annotations
 
 import json
 from collections.abc import Mapping
+from io import BytesIO
 from typing import Any, Final
 
 import httpx
+from PIL import Image
 
 from signet.adapters import http
 from signet.errors import AdapterError
@@ -56,17 +58,37 @@ EXTRACTION_SCHEMA: Final[Mapping[str, str]] = {
 }
 
 
-def _box(raw: Any) -> BoundingBox | None:
-    if not isinstance(raw, dict):
+def _page_size(content: bytes, media_type: str) -> tuple[float, float] | None:
+    """The page in the same units Nutrient reports boxes in, when we can tell.
+
+    Only raster pages are measured. Nutrient reports a PDF in points and this
+    codebase has no PDF reader, so rather than convert with a guessed page size
+    the box is dropped. A missing box costs a reviewer a highlight; a wrong one
+    points confidently at the wrong part of the document.
+    """
+    if not media_type.startswith("image/"):
+        return None
+    try:
+        with Image.open(BytesIO(content)) as page:
+            return float(page.width), float(page.height)
+    except (OSError, ValueError):
+        return None
+
+
+def _box(raw: Any, page: tuple[float, float] | None) -> BoundingBox | None:
+    if not isinstance(raw, dict) or page is None:
+        return None
+    width, height = page
+    if width <= 0 or height <= 0:
         return None
     try:
         return BoundingBox(
-            left=float(raw["x"]),
-            top=float(raw["y"]),
-            width=float(raw["width"]),
-            height=float(raw["height"]),
+            left=float(raw["x"]) / width,
+            top=float(raw["y"]) / height,
+            width=float(raw["width"]) / width,
+            height=float(raw["height"]) / height,
         )
-    except (KeyError, TypeError, ValueError):
+    except (KeyError, TypeError, ValueError, ZeroDivisionError):
         return None
 
 
@@ -142,9 +164,11 @@ class NutrientExtractor:
         output = body.get("output")
         if not isinstance(output, dict):
             raise AdapterError(f"unexpected Nutrient extraction shape: {str(body)[:200]}")
-        return Extraction(fields=tuple(self._fields(output)))
+        return Extraction(fields=tuple(self._fields(output, _page_size(content, media_type))))
 
-    def _fields(self, output: Mapping[str, Any]) -> list[ExtractedField]:
+    def _fields(
+        self, output: Mapping[str, Any], page_size: tuple[float, float] | None
+    ) -> list[ExtractedField]:
         data = output.get("data")
         if not isinstance(data, dict):
             return []
@@ -157,14 +181,14 @@ class NutrientExtractor:
                 continue
             citation = metadata.get(name)
             citation = citation if isinstance(citation, dict) else {}
-            page = citation.get("pageIndex")
+            index = citation.get("pageIndex")
             fields.append(
                 ExtractedField(
                     name=str(name),
                     value=str(value),
                     confidence=_confidence(citation.get("confidence")),
-                    page=page if isinstance(page, int) else 0,
-                    box=_box(citation.get("bbox")),
+                    page=index if isinstance(index, int) else 0,
+                    box=_box(citation.get("bbox"), page_size),
                 )
             )
         return fields
