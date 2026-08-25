@@ -10,18 +10,21 @@
 // an authenticated one was refused, and the backend was open exactly when
 // nobody had configured it. An unconfigured instance now refuses everyone.
 //
-// Confirmed live: the comparison is against whatever the Authorization header
-// carries, so signet_api_key must hold that same form.
+// A user defined environment variable is read with one dollar, not two. Their
+// documentation gives $env.$<name> as the read syntax, which is right only for
+// Xano's own built-ins such as $request_auth_token; the doubled form returned
+// null for a variable the settings panel showed as set. Proven by an endpoint
+// that reported both forms side by side.
 function "Signet/require_api_key" {
   input {
   }
 
   stack {
-    precondition ($env.$signet_api_key != "") {
+    precondition ($env.signet_api_key != null) {
       error_type = "unauthorized"
       error = "Signet is not configured on this instance."
     }
-    precondition ($env.$request_auth_token == $env.$signet_api_key) {
+    precondition ($env.$request_auth_token == $env.signet_api_key) {
       error_type = "unauthorized"
       error = "Signet API key missing or wrong."
     }

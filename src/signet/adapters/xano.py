@@ -25,6 +25,7 @@ same costume is how an empty workspace passed for a working one.
 
 from __future__ import annotations
 
+import time
 from collections.abc import Mapping
 from typing import Any, Final
 
@@ -49,6 +50,16 @@ def _cache_key(namespace: str, key: str) -> str:
     that index holding.
     """
     return f"{namespace}:{key}"
+
+
+# A day is long enough to stop a demo re-asking the same question and short
+# enough that a domain registered this morning is not reported as absent
+# tomorrow.
+CACHE_TTL_SECONDS: Final = 86_400
+
+
+def _now_ms() -> int:
+    return int(time.time() * 1000)
 
 
 class XanoRecordStore:
@@ -100,8 +111,19 @@ class XanoRecordStore:
         return existing is None
 
     def cache_get(self, namespace: str, key: str) -> Mapping[str, object] | None:
+        """The cached value, or None once it is past its expiry.
+
+        Freshness is enforced here rather than in the query, because the store
+        returns whatever row it holds and the port promises that an entry which
+        has expired reads as absent. A stale answer is worse than no answer for
+        a signal like domain age: the fact it records can change, and serving
+        the old one would keep a resolved risk alive indefinitely.
+        """
         body = self._request("GET", "/cache", params={"key": _cache_key(namespace, key)})
         if not isinstance(body, dict):
+            return None
+        expires_at = body.get("expires_at")
+        if isinstance(expires_at, int | float) and expires_at and expires_at <= _now_ms():
             return None
         value = body.get("value")
         return value if isinstance(value, dict) else None
@@ -114,6 +136,7 @@ class XanoRecordStore:
                 "namespace": namespace,
                 "key": _cache_key(namespace, key),
                 "value": dict(value),
+                "expires_at": _now_ms() + CACHE_TTL_SECONDS * 1000,
             },
         )
 

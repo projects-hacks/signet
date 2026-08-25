@@ -6,6 +6,7 @@ have to satisfy, not a record of something discovered.
 
 from __future__ import annotations
 
+import json
 from typing import Any
 
 import httpx
@@ -155,3 +156,49 @@ def test_any_404_is_a_missing_route_now_that_absence_is_a_200() -> None:
 
     with pytest.raises(AdapterError, match="no endpoint"):
         store(handler).issuer("probe.invalid")
+
+
+def test_an_expired_entry_reads_as_absent() -> None:
+    """A stale fraud signal is worse than none: the fact it records can change."""
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200, json={"value": {"registered": "1999-01-01"}, "expires_at": 1_000}
+        )
+
+    store = XanoRecordStore(
+        "https://x.invalid/api:abc",
+        "key",
+        client=httpx.Client(transport=httpx.MockTransport(handler)),
+    )
+    assert store.cache_get("rdap", "stripe.com") is None
+
+
+def test_an_unexpired_entry_is_returned() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        far_future = 99_999_999_999_999
+        return httpx.Response(200, json={"value": {"registered": "1995"}, "expires_at": far_future})
+
+    store = XanoRecordStore(
+        "https://x.invalid/api:abc",
+        "key",
+        client=httpx.Client(transport=httpx.MockTransport(handler)),
+    )
+    assert store.cache_get("rdap", "stripe.com") == {"registered": "1995"}
+
+
+def test_writing_a_cache_entry_sends_an_expiry() -> None:
+    """Without one the row lands with expires_at zero and never goes stale."""
+    seen: dict[str, Any] = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.update(json.loads(request.content))
+        return httpx.Response(200, json=None)
+
+    store = XanoRecordStore(
+        "https://x.invalid/api:abc",
+        "key",
+        client=httpx.Client(transport=httpx.MockTransport(handler)),
+    )
+    store.cache_put("rdap", "stripe.com", {"registered": "1995"})
+    assert seen["expires_at"] > 0
