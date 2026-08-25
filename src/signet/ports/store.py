@@ -33,6 +33,10 @@ class RecordStore(Protocol):
         """
         ...
 
+    def enrol(self, domain: str, brand: str, public_key: bytes) -> None:
+        """Bind a brand to a domain. Enrolment is the only writer of identity."""
+        ...
+
     def record_submission(self, fingerprint: str, submitted_by: str) -> bool:
         """Record a submission. Returns False when this fingerprint was seen before."""
         ...

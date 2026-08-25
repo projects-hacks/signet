@@ -15,11 +15,12 @@ from datetime import UTC, date, datetime
 from pathlib import Path
 
 from signet.adapters.dns_multi import DohResolver
-from signet.adapters.local_store import DEFAULT_PATH, LocalRecordStore
+from signet.adapters.local_store import DEFAULT_PATH
 from signet.adapters.namecom import NameComClient, NameComDns
 from signet.adapters.nutrient import NutrientClient, NutrientExtractor
 from signet.adapters.qr import ImageMarkReader, render_mark
 from signet.adapters.rdap import RdapRegistrationData
+from signet.adapters.records import record_store
 from signet.config import load_settings
 from signet.constants import DNS_LABEL
 from signet.core.mark import encode_mark, format_locator
@@ -65,7 +66,7 @@ def keygen(args: argparse.Namespace) -> int:
     path.write_bytes(private)
     path.chmod(0o600)
 
-    LocalRecordStore(Path(args.store)).enrol(args.domain, args.brand, public)
+    record_store(load_settings(), Path(args.store)).enrol(args.domain, args.brand, public)
 
     print(f"private key  {path}  (mode 600, gitignored)")
     print(f"enrolled     {args.domain} as {args.brand}\n")
@@ -80,7 +81,7 @@ def keygen(args: argparse.Namespace) -> int:
 
 def publish(args: argparse.Namespace) -> int:
     """Write the key to DNS, then wait for the public internet to agree."""
-    store = LocalRecordStore(Path(args.store))
+    store = record_store(load_settings(), Path(args.store))
     issuer = store.issuer(args.domain)
     if issuer is None:
         print(
@@ -147,8 +148,8 @@ def verify(args: argparse.Namespace) -> int:
         print(f"no such file: {path}", file=sys.stderr)
         return 1
 
-    store = LocalRecordStore(Path(args.store))
     settings = load_settings()
+    store = record_store(settings, Path(args.store))
     # Without an extractor the pipeline simply runs one check fewer, so an
     # unconfigured Nutrient degrades the verdict's depth rather than breaking it.
     extractor = (

@@ -24,10 +24,11 @@ from starlette.routing import Mount, Route
 from starlette.staticfiles import StaticFiles
 
 from signet.adapters.dns_multi import DohResolver
-from signet.adapters.local_store import DEFAULT_PATH, LocalRecordStore
+from signet.adapters.local_store import DEFAULT_PATH
 from signet.adapters.nutrient import NutrientClient, NutrientExtractor
 from signet.adapters.qr import ImageMarkReader
 from signet.adapters.rdap import RdapRegistrationData
+from signet.adapters.records import record_store
 from signet.config import Settings, load_settings
 from signet.core.verdict import Decision
 from signet.errors import SignetError
@@ -70,7 +71,7 @@ def _decision_json(run_id: str, decision: Decision) -> dict[str, Any]:
 
 
 def build_pipeline(settings: Settings, store_path: Path) -> VerificationPipeline:
-    store = LocalRecordStore(store_path)
+    store = record_store(settings, store_path)
     extractor = (
         NutrientExtractor(NutrientClient(settings.nutrient.values[0]))
         if settings.nutrient.configured and not settings.fixtures

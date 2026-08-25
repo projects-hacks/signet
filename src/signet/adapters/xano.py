@@ -90,6 +90,19 @@ class XanoRecordStore:
             frozen=bool(row.get("frozen")),
         )
 
+    def enrol(self, domain: str, brand: str, public_key: bytes) -> None:
+        """Bind a brand to a domain, replacing an earlier binding for that domain.
+
+        Upsert rather than insert: keygen is the kind of command someone runs
+        twice, and the second run should supersede the key it replaced rather
+        than fail on the unique index.
+        """
+        self._request(
+            "POST",
+            "/issuer",
+            json={"domain": domain, "brand": brand, "public_key_hex": public_key.hex()},
+        )
+
     def enrolled_issuers(self) -> tuple[Issuer, ...]:
         body = self._request("GET", "/issuers")
         rows = body.get("issuers") if isinstance(body, dict) else body
