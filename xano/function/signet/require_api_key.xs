@@ -5,16 +5,22 @@
 // backend, so the check lives in one function that every endpoint calls rather
 // than being repeated and eventually missed.
 //
-// UNVERIFIED, confirm on the first live call: whether $env.$request_auth_token
-// arrives with the "Bearer " prefix intact. Set the signet_api_key environment
-// variable to whatever form the header actually carries, prefix included if it
-// is there. The composition of $env.$request_auth_token with a precondition is
-// documented piece by piece but no source shows it written out.
+// The emptiness check is not defensive padding. A single equality against an
+// unset variable compares empty to empty, so an anonymous caller passed while
+// an authenticated one was refused, and the backend was open exactly when
+// nobody had configured it. An unconfigured instance now refuses everyone.
+//
+// Confirmed live: the comparison is against whatever the Authorization header
+// carries, so signet_api_key must hold that same form.
 function "Signet/require_api_key" {
   input {
   }
 
   stack {
+    precondition ($env.$signet_api_key != "") {
+      error_type = "unauthorized"
+      error = "Signet is not configured on this instance."
+    }
     precondition ($env.$request_auth_token == $env.$signet_api_key) {
       error_type = "unauthorized"
       error = "Signet API key missing or wrong."
