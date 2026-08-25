@@ -33,6 +33,7 @@ from typing import Any, Final
 
 import httpx
 
+from signet.adapters import http
 from signet.errors import AdapterError
 from signet.ports.documents import BoundingBox, ExtractedField, Extraction
 
@@ -82,7 +83,7 @@ class NutrientClient:
             raise ValueError("Nutrient requires an API key")
         self._base_url = base_url.rstrip("/")
         self._headers = {"Authorization": f"Bearer {api_key}"}
-        self._client = client or httpx.Client(timeout=_TIMEOUT_SECONDS)
+        self._client = client or http.client(_TIMEOUT_SECONDS)
 
     def post(self, path: str, **kwargs: Any) -> httpx.Response:
         try:

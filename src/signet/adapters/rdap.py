@@ -14,6 +14,7 @@ from datetime import date, datetime
 
 import httpx
 
+from signet.adapters import http
 from signet.errors import AdapterError
 from signet.ports.registry import Registration
 
@@ -32,8 +33,8 @@ def _parse_date(value: object) -> date | None:
 
 class RdapRegistrationData:
     def __init__(self, client: httpx.Client | None = None) -> None:
-        self._client = client or httpx.Client(
-            timeout=_TIMEOUT_SECONDS, follow_redirects=True, headers={"Accept": "application/json"}
+        self._client = client or http.client(
+            _TIMEOUT_SECONDS, follow_redirects=True, headers={"Accept": "application/json"}
         )
 
     def registration(self, domain: str) -> Registration:

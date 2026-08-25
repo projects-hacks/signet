@@ -21,6 +21,7 @@ from typing import Final
 
 import httpx
 
+from signet.adapters import http
 from signet.errors import AdapterError
 from signet.ports.dns import TxtLookup
 
@@ -56,8 +57,8 @@ class DohResolver:
         if not providers:
             raise ValueError("at least one provider is required")
         self._providers = providers
-        self._client = client or httpx.Client(
-            timeout=_TIMEOUT_SECONDS, headers={"Accept": "application/dns-json"}
+        self._client = client or http.client(
+            _TIMEOUT_SECONDS, headers={"Accept": "application/dns-json"}
         )
 
     def lookup_txt(self, name: str) -> TxtLookup:

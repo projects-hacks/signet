@@ -25,6 +25,7 @@ from typing import Any, Final
 
 import httpx
 
+from signet.adapters import http
 from signet.errors import AdapterError
 
 PRODUCTION_URL: Final = "https://api.name.com"
@@ -54,7 +55,7 @@ class NameComClient:
         credential = base64.b64encode(f"{username}:{token}".encode()).decode("ascii")
         self._base_url = base_url.rstrip("/")
         self._headers = {"Authorization": f"Basic {credential}", "Accept": "application/json"}
-        self._client = client or httpx.Client(timeout=_TIMEOUT_SECONDS)
+        self._client = client or http.client(_TIMEOUT_SECONDS)
         self._sleep = sleep
         self._monotonic = monotonic
         self._last_call = 0.0

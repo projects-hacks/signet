@@ -12,11 +12,11 @@ verifies, because the mark carries everything layer one needs.
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 
 from signet.core.mark import Mark, decode_mark
-from signet.core.verdict import Decision, decide
+from signet.core.verdict import Decision, Outcome, Signal, decide
 from signet.errors import AdapterError, MarkError
 from signet.ports.documents import MarkReader
 from signet.ports.store import RecordStore
@@ -56,10 +56,10 @@ class VerificationPipeline:
             claimed_brand=request.claimed_brand,
         )
 
-        self._store.append_audit(request.run_id, "started", {"marked": mark is not None})
-        signals = [check.run(context) for check in self._checks]
+        self._audit(request.run_id, "started", {"marked": mark is not None})
+        signals = [self._signal_from(check, context) for check in self._checks]
         decision = decide(signals)
-        self._store.append_audit(
+        self._audit(
             request.run_id,
             "decided",
             {
@@ -69,6 +69,38 @@ class VerificationPipeline:
             },
         )
         return decision
+
+    @staticmethod
+    def _signal_from(check: Check, context: VerificationContext) -> Signal:
+        """A check that cannot reach its evidence reports UNKNOWN, never PASS.
+
+        Certification requires signature and identity to pass, so an unreachable
+        store drops the verdict to unsigned rather than certifying anything. That
+        is the only safe direction: an outage is exactly when an attacker would
+        choose to send a lookalike, and a check that passes because it could not
+        look is worse than no check.
+        """
+        try:
+            return check.run(context)
+        except AdapterError as exc:
+            return Signal(
+                check.name,
+                Outcome.UNKNOWN,
+                f"Could not complete the {check.name} check.",
+                str(exc),
+            )
+
+    def _audit(self, run_id: str, event: str, detail: Mapping[str, object]) -> None:
+        """Logging must never be able to fail a verification.
+
+        A verdict that depends on the audit trail being writable is a verdict
+        that disappears when the trail does, and the signature was still valid
+        either way.
+        """
+        try:
+            self._store.append_audit(run_id, event, detail)
+        except AdapterError:
+            return
 
     def _find_mark(self, request: VerificationRequest) -> Mark | None:
         """Prefer a mark the caller scanned; fall back to reading the document.

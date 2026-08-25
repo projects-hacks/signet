@@ -37,6 +37,7 @@ from typing import Any, Final
 
 import httpx
 
+from signet.adapters import http
 from signet.errors import AdapterError
 
 # Their published spec names api.doctavian.com as the only server, and a key
@@ -111,7 +112,7 @@ class DoctavianRenderer:
         self._base_url = base_url.rstrip("/")
         self._locale = locale
         self._timezone = timezone
-        self._client = client or httpx.Client(timeout=_TIMEOUT_SECONDS)
+        self._client = client or http.client(_TIMEOUT_SECONDS)
 
     def render(
         self, document_class: str, fields: Mapping[str, str], mark: str, locator: str

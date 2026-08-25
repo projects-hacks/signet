@@ -31,6 +31,7 @@ from typing import Any, Final
 
 import httpx
 
+from signet.adapters import http
 from signet.errors import AdapterError
 from signet.ports.store import Issuer
 
@@ -71,7 +72,7 @@ class XanoRecordStore:
             "Authorization": f"Bearer {api_key}",
             "Accept": "application/json",
         }
-        self._client = client or httpx.Client(timeout=_TIMEOUT_SECONDS)
+        self._client = client or http.client(_TIMEOUT_SECONDS)
 
     def issuer(self, domain: str) -> Issuer | None:
         body = self._request("GET", "/issuer", params={"domain": domain})
