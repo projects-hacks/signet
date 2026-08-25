@@ -20,12 +20,15 @@ class DuplicateCheck:
         self._store = store
 
     def run(self, context: VerificationContext) -> Signal:
-        first_time = self._store.record_submission(fingerprint(context), context.submitted_by)
+        digest = fingerprint(context)
+        seen = {"fingerprint": digest, "submittedBy": context.submitted_by}
+        first_time = self._store.record_submission(digest, context.submitted_by)
         if not first_time:
             return Signal(
                 NAME,
                 Outcome.FAIL,
                 "This exact document has already been submitted.",
                 "ledger",
+                {**seen, "firstTime": False},
             )
-        return Signal(NAME, Outcome.PASS, "Not seen before.", "ledger")
+        return Signal(NAME, Outcome.PASS, "Not seen before.", "ledger", {**seen, "firstTime": True})

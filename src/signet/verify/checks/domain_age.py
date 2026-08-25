@@ -50,6 +50,12 @@ class DomainAgeCheck:
             return Signal(NAME, Outcome.UNKNOWN, f"No registration date for {domain}.", "rdap")
 
         age = (self._today - registration.created).days
+        seen = {
+            "domain": domain,
+            "created": registration.created.isoformat(),
+            "ageDays": age,
+            "youngerThanDays": YOUNG_DOMAIN_DAYS,
+        }
         if age < YOUNG_DOMAIN_DAYS:
             return Signal(
                 NAME,
@@ -57,5 +63,6 @@ class DomainAgeCheck:
                 f"{domain} was registered {age} days ago, which is recent enough to be "
                 "worth a second look.",
                 "rdap",
+                seen,
             )
-        return Signal(NAME, Outcome.PASS, f"{domain} has been registered {age} days.", "rdap")
+        return Signal(NAME, Outcome.PASS, f"{domain} has been registered {age} days.", "rdap", seen)

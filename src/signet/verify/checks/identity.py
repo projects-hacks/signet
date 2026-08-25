@@ -39,6 +39,7 @@ class IdentityCheck:
                 Outcome.FAIL,
                 f"Signed by {domain}, which is not a domain we hold a brand record for.",
                 "registry",
+                {"domain": domain, "claimedBrand": context.claimed_brand, "enrolled": False},
             )
         if issuer.frozen:
             return Signal(
@@ -46,6 +47,7 @@ class IdentityCheck:
                 Outcome.FAIL,
                 f"{domain} is frozen. Its registration changed hands or lapsed.",
                 "registry",
+                {"domain": domain, "enrolledBrand": issuer.brand, "frozen": True},
             )
         if context.claimed_brand and not _same_brand(issuer.brand, context.claimed_brand):
             return Signal(
@@ -53,5 +55,20 @@ class IdentityCheck:
                 Outcome.FAIL,
                 f"This document names {context.claimed_brand}, but {domain} is {issuer.brand}.",
                 "registry",
+                {
+                    "domain": domain,
+                    "claimedBrand": context.claimed_brand,
+                    "enrolledBrand": issuer.brand,
+                },
             )
-        return Signal(NAME, Outcome.PASS, f"{domain} is {issuer.brand}.", "registry")
+        return Signal(
+            NAME,
+            Outcome.PASS,
+            f"{domain} is {issuer.brand}.",
+            "registry",
+            {
+                "domain": domain,
+                "claimedBrand": context.claimed_brand,
+                "enrolledBrand": issuer.brand,
+            },
+        )

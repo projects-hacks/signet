@@ -56,6 +56,10 @@ class FidelityCheck:
         signed = context.mark.payload.fields
         printed = extraction.by_name()
         uncertain: list[str] = []
+        # Every field compared, kept whether or not it disagreed, because a
+        # reader deciding whether to trust the verdict needs to see what was
+        # looked at rather than only what was found wanting.
+        compared: list[dict[str, object]] = []
 
         for field_name in COMPARED_FIELDS:
             expected = signed.get(field_name)
@@ -64,7 +68,27 @@ class FidelityCheck:
             found = printed.get(field_name)
             # A signed field the page does not carry is not a discrepancy.
             if found is None:
+                compared.append({"field": field_name, "signed": expected, "printed": None})
                 continue
+
+            compared.append(
+                {
+                    "field": field_name,
+                    "signed": expected,
+                    "printed": found.value,
+                    "confidence": found.confidence,
+                    "page": found.page,
+                    "box": None
+                    if found.box is None
+                    else {
+                        "left": found.box.left,
+                        "top": found.box.top,
+                        "width": found.box.width,
+                        "height": found.box.height,
+                    },
+                    "agrees": _comparable(found.value) == _comparable(expected),
+                }
+            )
 
             if found.confidence < self._threshold:
                 uncertain.append(field_name)
@@ -75,6 +99,7 @@ class FidelityCheck:
                     Outcome.FAIL,
                     f"The page shows {found.value} where the signature covers {expected}.",
                     "extraction",
+                    {"threshold": self._threshold, "compared": compared},
                 )
 
         if uncertain:
@@ -83,5 +108,12 @@ class FidelityCheck:
                 Outcome.UNKNOWN,
                 f"Needs a human: {', '.join(uncertain)} could not be read confidently.",
                 "extraction",
+                {"threshold": self._threshold, "compared": compared, "uncertain": uncertain},
             )
-        return Signal(NAME, Outcome.PASS, "The page matches what was signed.", "extraction")
+        return Signal(
+            NAME,
+            Outcome.PASS,
+            "The page matches what was signed.",
+            "extraction",
+            {"threshold": self._threshold, "compared": compared},
+        )
