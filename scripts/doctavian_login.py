@@ -32,6 +32,19 @@ def _pkce() -> tuple[str, str]:
     return verifier, base64.urlsafe_b64encode(digest).decode().rstrip("=")
 
 
+def _code_from(answer: str) -> str:
+    """Accept the raw code or the whole callback URL.
+
+    The callback page renders the code only when Postman is running locally, so
+    the address bar is where most people find it, and the address bar holds a
+    URL rather than a bare code.
+    """
+    if not answer.startswith("http"):
+        return answer
+    query = urllib.parse.urlparse(answer).query
+    return urllib.parse.parse_qs(query).get("code", [""])[0]
+
+
 def main() -> int:
     verifier, challenge = _pkce()
     query = urllib.parse.urlencode(
@@ -47,10 +60,12 @@ def main() -> int:
     )
     print("\n  Open this and sign in with the Doctavian account:\n")
     print(f"  {BASE}/public/v1/auth/{PROVIDER}/authorize?{query}\n")
-    print("  You land on a Postman callback page showing an authorization code.")
-    code = input("  Paste the code here: ").strip()
+    print("  You land on a Postman callback page. It only prints the code when")
+    print("  Postman is running, so read it from the browser address bar instead.")
+    print("  Pasting the whole callback URL works too.\n")
+    code = _code_from(input("  Paste the code or the callback URL: ").strip())
     if not code:
-        print("  No code given.")
+        print("  No code found in that.")
         return 1
 
     response = httpx.post(
