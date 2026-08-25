@@ -39,7 +39,10 @@ import httpx
 
 from signet.errors import AdapterError
 
-BASE_URL: Final = "https://api.doctavian.com/v1"
+# Their published spec names api.doctavian.com as the only server, and a key
+# issued for one environment is refused by another with ApiKeyInvalid. The
+# hackathon account lives on the demo environment, which appears in no spec.
+BASE_URL: Final = "https://demo.api.doctavian.com/v1"
 _TIMEOUT_SECONDS: Final = 60.0
 
 _DATA_CONTAINER: Final = "document-data"
