@@ -42,7 +42,8 @@ from signet.errors import AdapterError
 
 # Their published spec names api.doctavian.com as the only server, and a key
 # issued for one environment is refused by another with ApiKeyInvalid. The
-# hackathon account lives on the demo environment, which appears in no spec.
+# hackathon account lives on a demo environment that appears in no spec, which
+# is why this is configurable rather than a constant anyone has to edit.
 BASE_URL: Final = "https://demo.api.doctavian.com/v1"
 _TIMEOUT_SECONDS: Final = 60.0
 

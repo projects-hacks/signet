@@ -133,7 +133,10 @@ def load_settings() -> Settings:
         foxit_esign=Credentials(
             "Foxit eSign", (_get("FOXIT_ESIGN_BASE_URL"), _get("FOXIT_ESIGN_API_KEY"))
         ),
-        doctavian=Credentials("Doctavian", (_get("DOCTAVIAN_API_KEY"), _get("DOCTAVIAN_TOKEN"))),
+        doctavian=Credentials(
+            "Doctavian",
+            (_get("DOCTAVIAN_API_KEY"), _get("DOCTAVIAN_TOKEN"), _get("DOCTAVIAN_BASE_URL")),
+        ),
         doctavian_signatures=Credentials(
             "Doctavian Signatures",
             # Their portal scopes the key by API version. If it turns out to
