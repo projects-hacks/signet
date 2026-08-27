@@ -2,7 +2,7 @@
 
    Stamp ink on a cool near-white. The three semantic colours are the stamp
    colours, so the boldest mark on the page carries the verdict rather than
-   decorating it. */
+   decorating it. One theme, matching the rest of the site. */
 
 :root {
   --paper: #f6f6f3;
@@ -24,31 +24,6 @@
   --step: clamp(0.75rem, 0.6rem + 0.5vw, 1rem);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
-    --paper: #101215;
-    --sheet: #171a1f;
-    --ink: #e9eaec;
-    --muted: #949aa3;
-    --rule: #282c33;
-    --seal: #7ba3dd;
-    --verify: #4fb894;
-    --doubt: #d0a153;
-    --refuse: #e0827a;
-  }
-}
-
-:root[data-theme="dark"] {
-  --paper: #101215;
-  --sheet: #171a1f;
-  --ink: #e9eaec;
-  --muted: #949aa3;
-  --rule: #282c33;
-  --seal: #7ba3dd;
-  --verify: #4fb894;
-  --doubt: #d0a153;
-  --refuse: #e0827a;
-}
 
 
 * { box-sizing: border-box; }
@@ -178,10 +153,6 @@ body {
   opacity: 0.9;
   mix-blend-mode: multiply;
   animation: press 200ms cubic-bezier(0.2, 0.9, 0.3, 1.2) both;
-}
-
-@media (prefers-color-scheme: dark) {
-  .stamp { mix-blend-mode: screen; }
 }
 
 .stamp-verdict {

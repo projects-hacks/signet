@@ -121,22 +121,57 @@ if (screen) {
   }
 }
 
+/* ── numbers, counted up ─────────────────────────────────────────
+
+   The figures are the argument, so they are worth a moment of attention. The
+   count runs once, lands on the exact printed value, and the element already
+   holds that value in the markup, so a reader with motion turned off or with
+   the script blocked sees the real number rather than a zero. */
+
+const COUNT_MS = 900;
+
+function countUp(element) {
+  const target = Number(element.dataset.count);
+  if (!Number.isFinite(target)) return;
+  const prefix = element.dataset.prefix ?? "";
+  const suffix = element.dataset.suffix ?? "";
+  const decimals = (String(target).split(".")[1] ?? "").length;
+  const started = performance.now();
+
+  const step = (now) => {
+    const through = Math.min(1, (now - started) / COUNT_MS);
+    // Ease out, so it decelerates into the value rather than stopping dead.
+    const eased = 1 - (1 - through) ** 3;
+    element.textContent = `${prefix}${(target * eased).toFixed(decimals)}${suffix}`;
+    if (through < 1) requestAnimationFrame(step);
+  };
+  requestAnimationFrame(step);
+}
+
 /* ── sections arriving ───────────────────────────────────────────── */
 
 if (!still) {
   const arriving = new IntersectionObserver(
     (entries) => {
       for (const entry of entries) {
-        if (entry.isIntersecting) {
-          entry.target.classList.add("is-here");
-          arriving.unobserve(entry.target);
-        }
+        if (!entry.isIntersecting) continue;
+        entry.target.classList.add("is-here");
+        for (const number of entry.target.querySelectorAll("[data-count]")) countUp(number);
+        arriving.unobserve(entry.target);
       }
     },
     { threshold: 0.08, rootMargin: "0px 0px -8% 0px" },
   );
-  for (const block of document.querySelectorAll(".holds > *")) {
+
+  for (const block of document.querySelectorAll(".holds > *, .hero > *")) {
     block.classList.add("arrives");
     arriving.observe(block);
+  }
+
+  // Children of a group settle in sequence rather than together.
+  for (const group of document.querySelectorAll(".figures, .facts, .steps, .cases, .logos, .limits")) {
+    [...group.children].forEach((child, index) => {
+      child.style.setProperty("--stagger", `${Math.min(index, 5) * 70}ms`);
+    });
   }
 }
