@@ -60,12 +60,21 @@ jobs:
       - run: npm run build
         working-directory: web
 
+  # The gitleaks binary rather than their action. The action requires a paid
+  # licence for any repository owned by an organisation, and refuses to run
+  # without one; the scanner itself is open source and has no such condition.
   secrets:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           fetch-depth: 0
-      - uses: gitleaks/gitleaks-action@83373cf2f8c4db6e24b41c1a9b086bb9619e9cd3 # v2.3.7
+      - name: install gitleaks
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_VERSION: 8.30.1
+        run: |
+          curl -sSfL -o gitleaks.tar.gz \
+            "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          tar -xzf gitleaks.tar.gz gitleaks
+      - name: scan the full history
+        run: ./gitleaks git --no-banner --redact --exit-code 1
