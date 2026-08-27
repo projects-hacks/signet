@@ -80,6 +80,7 @@ class Settings:
     foxit: Credentials
     doctavian: Credentials
     doctavian_templates: Mapping[str, Path]
+    allowed_origins: tuple[str, ...]
     doctavian_signatures: Credentials
     namecom: Credentials
     serpapi: Credentials
@@ -105,6 +106,17 @@ class Settings:
 
 def _get(name: str, default: str = "") -> str:
     return os.environ.get(name, default).strip()
+
+
+def _origins(raw: str) -> tuple[str, ...]:
+    """Which sites may call the verifier from a browser.
+
+    Empty means same origin only, which is correct when one process serves both
+    the page and the API. A wildcard is never produced from configuration: a
+    verifier that any page can drive on a reader's behalf is a verifier whose
+    answers can be attributed to a site that did not compute them.
+    """
+    return tuple(part.strip() for part in raw.split(",") if part.strip())
 
 
 def _templates(raw: str) -> Mapping[str, Path]:
@@ -152,6 +164,7 @@ def load_settings() -> Settings:
             (_get("DOCTAVIAN_API_KEY"), _get("DOCTAVIAN_BASE_URL")),
         ),
         doctavian_templates=_templates(_get("DOCTAVIAN_TEMPLATES")),
+        allowed_origins=_origins(_get("SIGNET_ALLOWED_ORIGINS")),
         doctavian_signatures=Credentials(
             "Doctavian Signatures",
             # Their portal scopes the key by API version. If it turns out to

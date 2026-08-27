@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
@@ -22,6 +23,7 @@ def settings() -> Settings:
         foxit=unset,
         doctavian=unset,
         doctavian_templates={},
+        allowed_origins=(),
         doctavian_signatures=unset,
         namecom=unset,
         serpapi=unset,
@@ -79,3 +81,34 @@ def test_an_oversized_upload_is_refused_rather_than_read(client: TestClient) -> 
 def test_a_blank_brand_is_treated_as_no_brand(client: TestClient) -> None:
     response = client.post("/api/verify", files={"file": ("scan.png", b"x")}, data={"brand": "   "})
     assert response.status_code == 200
+
+
+def test_no_allowlist_means_no_cross_origin_access(client: TestClient) -> None:
+    """One process serving both the page and the API needs no exception, and an
+    exception nobody needs is an exception somebody can use."""
+    response = client.post(
+        "/api/verify",
+        files={"file": ("scan.png", b"bytes")},
+        headers={"Origin": "https://elsewhere.example"},
+    )
+    assert "access-control-allow-origin" not in response.headers
+
+
+def test_a_named_origin_is_allowed_and_others_are_not(tmp_path: Path) -> None:
+    """Static hosting runs no server side code, so the page there is a different
+    origin from the verifier and has to be named."""
+    allowed = "https://signet-dev.example"
+    configured = replace(settings(), allowed_origins=(allowed,))
+    app = TestClient(create_app(configured, store_path=tmp_path / "store.json"))
+
+    permitted = app.post(
+        "/api/verify", files={"file": ("scan.png", b"bytes")}, headers={"Origin": allowed}
+    )
+    assert permitted.headers.get("access-control-allow-origin") == allowed
+
+    refused = app.post(
+        "/api/verify",
+        files={"file": ("scan.png", b"bytes")},
+        headers={"Origin": "https://elsewhere.example"},
+    )
+    assert "access-control-allow-origin" not in refused.headers

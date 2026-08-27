@@ -1,4 +1,5 @@
 import { useRef, useState } from "react";
+import { verifyDocument } from "./api.js";
 import Regions from "./components/Regions.jsx";
 import Stamp from "./components/Stamp.jsx";
 import Working from "./components/Working.jsx";
@@ -32,14 +33,8 @@ export default function App() {
     if (!file) return;
     setBusy(true);
     setError(null);
-    const body = new FormData();
-    body.append("file", file);
-    if (brand.trim()) body.append("brand", brand.trim());
     try {
-      const response = await fetch("/api/verify", { method: "POST", body });
-      const payload = await response.json();
-      if (!response.ok) throw new Error(payload.error ?? "The examination could not run.");
-      setResult(payload);
+      setResult(await verifyDocument(file, brand));
     } catch (cause) {
       setError(cause.message);
     } finally {

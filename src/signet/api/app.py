@@ -17,6 +17,8 @@ from pathlib import Path
 from typing import Any
 
 from starlette.applications import Starlette
+from starlette.middleware import Middleware
+from starlette.middleware.cors import CORSMiddleware
 from starlette.requests import Request
 from starlette.responses import JSONResponse
 from starlette.routing import Mount, Route
@@ -111,6 +113,22 @@ def create_app(
 
         return JSONResponse(_decision_json(run_id, decision))
 
+    # A page served from static hosting is a different origin from the process
+    # that verifies, so the browser asks first. Named origins only, and only the
+    # verify endpoint is reachable this way.
+    middleware = (
+        [
+            Middleware(
+                CORSMiddleware,
+                allow_origins=list(resolved.allowed_origins),
+                allow_methods=["GET", "POST", "OPTIONS"],
+                allow_headers=["*"],
+            )
+        ]
+        if resolved.allowed_origins
+        else []
+    )
+
     routes: list[Route | Mount] = [
         Route("/api/health", health, methods=["GET"]),
         Route("/api/verify", verify, methods=["POST"]),
@@ -120,4 +138,4 @@ def create_app(
     if static_root is not None and static_root.is_dir():
         routes.append(Mount("/", app=StaticFiles(directory=static_root, html=True), name="web"))
 
-    return Starlette(routes=routes)
+    return Starlette(routes=routes, middleware=middleware)
