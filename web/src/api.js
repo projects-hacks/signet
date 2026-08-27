@@ -1,33 +1,60 @@
-/* Where the verifier lives.
+/* Where the verifier lives, and how its answers arrive.
 
    The frontend can be served from the same process as the API, or from static
    hosting that runs no server side code at all. Static hosting also answers an
    unknown path with the homepage rather than a 404, so a misconfigured base URL
    comes back as HTML with a 200. Parsing that as JSON gives a syntax error and
-   an unreadable message, which is why the content type is checked before the
-   body is read. */
+   an unreadable message, which is why the content type is checked first. */
 
 const BASE = (import.meta.env.VITE_API_BASE ?? "").replace(/\/$/, "");
 
-export async function verifyDocument(file, brand) {
+/* Checks take unequal time: a DNS read answers in milliseconds, reading the page
+   is an upload to an extraction service. The stream reports each one as it
+   lands, so `onEvent` is called with {event: "started" | "signal" | "decided" |
+   "failed"} and the caller renders progress that is real rather than animated. */
+export async function examineDocument(file, brand, onEvent, signal) {
   const body = new FormData();
   body.append("file", file);
   if (brand.trim()) body.append("brand", brand.trim());
 
   let response;
   try {
-    response = await fetch(`${BASE}/api/verify`, { method: "POST", body });
-  } catch {
+    response = await fetch(`${BASE}/api/examine`, { method: "POST", body, signal });
+  } catch (cause) {
+    if (cause.name === "AbortError") throw cause;
     throw new Error("The verifier could not be reached from here.");
   }
 
-  if (!response.headers.get("content-type")?.includes("application/json")) {
-    throw new Error(
-      "This page is not connected to a verifier. It is serving static files only.",
-    );
+  const type = response.headers.get("content-type") ?? "";
+  if (!response.ok && type.includes("application/json")) {
+    throw new Error((await response.json()).error ?? "The examination could not run.");
+  }
+  if (!type.includes("ndjson")) {
+    throw new Error("This page is not connected to a verifier. It is serving static files only.");
   }
 
-  const payload = await response.json();
-  if (!response.ok) throw new Error(payload.error ?? "The examination could not run.");
-  return payload;
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  let decision = null;
+
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    // A chunk boundary lands anywhere, so the tail stays buffered until its
+    // newline arrives rather than being parsed as a truncated object.
+    const lines = buffer.split("\n");
+    buffer = lines.pop() ?? "";
+    for (const line of lines) {
+      if (!line.trim()) continue;
+      const message = JSON.parse(line);
+      if (message.event === "failed") throw new Error(message.error);
+      if (message.event === "decided") decision = message;
+      onEvent(message);
+    }
+  }
+
+  if (!decision) throw new Error("The examination ended before reaching a verdict.");
+  return decision;
 }

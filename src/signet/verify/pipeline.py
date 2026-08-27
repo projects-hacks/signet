@@ -12,12 +12,12 @@ verifies, because the mark carries everything layer one needs.
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Iterator, Mapping, Sequence
 from dataclasses import dataclass
 
 from signet.core.mark import Mark, decode_mark
 from signet.core.verdict import Decision, Outcome, Signal, decide
-from signet.errors import AdapterError, MarkError
+from signet.errors import AdapterError, MarkError, SignetError
 from signet.ports.documents import MarkReader
 from signet.ports.store import RecordStore
 from signet.verify.checks import Check
@@ -45,7 +45,33 @@ class VerificationPipeline:
         self._store = store
         self._mark_reader = mark_reader
 
+    @property
+    def check_names(self) -> tuple[str, ...]:
+        """What this run will ask, before it has asked any of it.
+
+        A reader waiting on a verdict is owed the shape of the answer rather than
+        a spinner, and the shape is knowable at the start.
+        """
+        return tuple(check.name for check in self._checks)
+
     def run(self, request: VerificationRequest) -> Decision:
+        decision: Decision | None = None
+        for step in self.stream(request):
+            if isinstance(step, Decision):
+                decision = step
+        if decision is None:  # pragma: no cover, stream always ends in a decision
+            raise SignetError("the pipeline produced no decision")
+        return decision
+
+    def stream(self, request: VerificationRequest) -> Iterator[Signal | Decision]:
+        """Every signal as it lands, then the verdict.
+
+        Checks take unequal time. The signature is a DNS read and answers in
+        milliseconds; reading the page is an upload to an extraction service and
+        takes seconds. Yielding each one as it completes lets a reader watch the
+        cheap answers arrive rather than wait on the slowest, and it costs
+        nothing, because the checks already run in sequence.
+        """
         mark = self._find_mark(request)
         context = VerificationContext(
             run_id=request.run_id,
@@ -57,7 +83,12 @@ class VerificationPipeline:
         )
 
         self._audit(request.run_id, "started", {"marked": mark is not None})
-        signals = [self._signal_from(check, context) for check in self._checks]
+        signals: list[Signal] = []
+        for check in self._checks:
+            signal = self._signal_from(check, context)
+            signals.append(signal)
+            yield signal
+
         decision = decide(signals)
         self._audit(
             request.run_id,
@@ -68,7 +99,7 @@ class VerificationPipeline:
                 "signals": {signal.name: signal.outcome.value for signal in decision.signals},
             },
         )
-        return decision
+        yield decision
 
     @staticmethod
     def _signal_from(check: Check, context: VerificationContext) -> Signal:

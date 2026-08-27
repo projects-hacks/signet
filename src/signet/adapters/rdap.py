@@ -19,7 +19,11 @@ from signet.errors import AdapterError
 from signet.ports.registry import Registration
 
 _BOOTSTRAP = "https://rdap.org/domain/"
-_TIMEOUT_SECONDS = 10.0
+# Domain age is advisory: it never fails a document on its own, and a verdict
+# that already has its answer should not wait ten seconds for a footnote. The
+# bootstrap service is also the slowest thing on the verification path when a
+# registry is unresponsive, which is exactly when the wait buys nothing.
+_TIMEOUT_SECONDS = 3.0
 
 
 def _parse_date(value: object) -> date | None:

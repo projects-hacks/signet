@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from dataclasses import replace
 from pathlib import Path
 
@@ -112,3 +113,70 @@ def test_a_named_origin_is_allowed_and_others_are_not(tmp_path: Path) -> None:
         headers={"Origin": "https://elsewhere.example"},
     )
     assert "access-control-allow-origin" not in refused.headers
+
+
+def test_the_stream_names_every_check_before_asking_any(client: TestClient) -> None:
+    """A reader waiting on a verdict is owed the shape of the answer, and the
+    shape is knowable at the start."""
+    with client.stream(
+        "POST", "/api/examine", files={"file": ("scan.png", b"not a real image")}
+    ) as response:
+        first = json.loads(next(response.iter_lines()))
+    assert first["event"] == "started"
+    assert first["checks"]
+    assert "signature" in first["checks"]
+
+
+def test_every_signal_arrives_before_the_verdict(client: TestClient) -> None:
+    with client.stream(
+        "POST", "/api/examine", files={"file": ("scan.png", b"not a real image")}
+    ) as response:
+        events = [json.loads(line) for line in response.iter_lines() if line]
+
+    kinds = [event["event"] for event in events]
+    assert kinds[0] == "started"
+    assert kinds[-1] == "decided"
+    assert set(kinds[1:-1]) == {"signal"}
+
+    named = [event["name"] for event in events if event["event"] == "signal"]
+    assert named == list(events[0]["checks"])
+    assert events[-1]["verdict"] in {"certified", "flagged", "unsigned"}
+
+
+def test_the_streamed_verdict_matches_the_single_shot_one(client: TestClient) -> None:
+    """Two endpoints, one pipeline. If they can disagree, one of them is lying.
+
+    Distinct content on purpose. The same bytes twice is genuinely a different
+    question the second time, which the next test is about.
+    """
+    once = client.post("/api/verify", files={"file": ("a.png", b"one document")}).json()
+    with client.stream("POST", "/api/examine", files={"file": ("b.png", b"another")}) as response:
+        streamed = [json.loads(line) for line in response.iter_lines() if line][-1]
+
+    assert streamed["verdict"] == once["verdict"]
+    assert [signal["name"] for signal in streamed["signals"]] == [
+        signal["name"] for signal in once["signals"]
+    ]
+
+
+def test_the_submissions_ledger_is_shared_across_both_endpoints(client: TestClient) -> None:
+    """Sending the same document again is a different question, and asking it
+    through the other endpoint must not reset the answer."""
+    client.post("/api/verify", files={"file": ("scan.png", b"the same bytes")})
+    with client.stream(
+        "POST", "/api/examine", files={"file": ("scan.png", b"the same bytes")}
+    ) as response:
+        events = [json.loads(line) for line in response.iter_lines() if line]
+
+    duplicate = next(
+        event for event in events if event.get("event") == "signal" and event["name"] == "duplicate"
+    )
+    assert duplicate["outcome"] == "fail"
+    assert events[-1]["verdict"] == "flagged"
+
+
+def test_a_stream_refuses_an_empty_file_before_it_starts(client: TestClient) -> None:
+    """A failure known before any work is a status code, not a final line."""
+    response = client.post("/api/examine", files={"file": ("scan.png", b"")})
+    assert response.status_code == 400
+    assert response.headers["content-type"].startswith("application/json")

@@ -12,7 +12,9 @@ and the resolver's connection reuse is most of why a verification is fast.
 
 from __future__ import annotations
 
+import json
 import uuid
+from collections.abc import Iterator, Mapping
 from pathlib import Path
 from typing import Any
 
@@ -20,13 +22,13 @@ from starlette.applications import Starlette
 from starlette.middleware import Middleware
 from starlette.middleware.cors import CORSMiddleware
 from starlette.requests import Request
-from starlette.responses import JSONResponse
+from starlette.responses import JSONResponse, Response, StreamingResponse
 from starlette.routing import Mount, Route
 from starlette.staticfiles import StaticFiles
 
 from signet.adapters.local_store import DEFAULT_PATH
 from signet.config import Settings, load_settings
-from signet.core.verdict import Decision
+from signet.core.verdict import Decision, Signal
 from signet.errors import SignetError
 from signet.verify.pipeline import VerificationRequest
 from signet.wiring import build_pipeline
@@ -48,21 +50,26 @@ def _media_type(filename: str) -> str:
     return _MEDIA_TYPES.get(Path(filename).suffix.lower(), "application/octet-stream")
 
 
+def _line(payload: Mapping[str, object]) -> bytes:
+    return json.dumps(payload, separators=(",", ":")).encode("utf-8") + b"\n"
+
+
+def _signal_json(signal: Signal) -> dict[str, Any]:
+    return {
+        "name": signal.name,
+        "outcome": signal.outcome.value,
+        "detail": signal.detail,
+        "source": signal.source,
+        "evidence": dict(signal.evidence),
+    }
+
+
 def _decision_json(run_id: str, decision: Decision) -> dict[str, Any]:
     return {
         "runId": run_id,
         "verdict": decision.verdict.value,
         "reason": decision.reason,
-        "signals": [
-            {
-                "name": signal.name,
-                "outcome": signal.outcome.value,
-                "detail": signal.detail,
-                "source": signal.source,
-                "evidence": dict(signal.evidence),
-            }
-            for signal in decision.signals
-        ],
+        "signals": [_signal_json(signal) for signal in decision.signals],
     }
 
 
@@ -129,9 +136,54 @@ def create_app(
         else []
     )
 
+    async def examine(request: Request) -> Response:
+        """The same verification, reported as it happens.
+
+        One JSON object per line. The first names every check this run will ask,
+        so a reader sees the shape of the answer immediately; each signal follows
+        as it lands; the verdict is last. Newline delimited rather than server
+        sent events because the document arrives by POST and EventSource cannot
+        send one.
+        """
+        form = await request.form()
+        upload = form.get("file")
+        if not hasattr(upload, "read") or not hasattr(upload, "filename"):
+            return JSONResponse({"error": "Attach a document as the file field."}, status_code=400)
+        content = await upload.read()  # type: ignore[union-attr]
+        if not content:
+            return JSONResponse({"error": "That file is empty."}, status_code=400)
+        if len(content) > MAX_UPLOAD_BYTES:
+            return JSONResponse({"error": "That file is too large to verify."}, status_code=413)
+
+        brand = form.get("brand")
+        run_id = uuid.uuid4().hex[:12]
+        verification = VerificationRequest(
+            run_id=run_id,
+            content=content,
+            media_type=_media_type(str(upload.filename)),  # type: ignore[union-attr]
+            submitted_by="web",
+            claimed_brand=str(brand) if isinstance(brand, str) and brand.strip() else None,
+        )
+
+        def lines() -> Iterator[bytes]:
+            yield _line({"event": "started", "runId": run_id, "checks": pipeline.check_names})
+            try:
+                for step in pipeline.stream(verification):
+                    if isinstance(step, Decision):
+                        yield _line({"event": "decided", **_decision_json(run_id, step)})
+                    else:
+                        yield _line({"event": "signal", **_signal_json(step)})
+            except SignetError as exc:
+                # A vendor being down is not a verdict. The stream has already
+                # started, so this arrives as a final line rather than a status.
+                yield _line({"event": "failed", "error": str(exc)})
+
+        return StreamingResponse(lines(), media_type="application/x-ndjson")
+
     routes: list[Route | Mount] = [
         Route("/api/health", health, methods=["GET"]),
         Route("/api/verify", verify, methods=["POST"]),
+        Route("/api/examine", examine, methods=["POST"]),
     ]
     # Mounted last and only when built, so the API keeps answering during a
     # frontend rebuild rather than the whole app failing to start.

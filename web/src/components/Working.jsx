@@ -1,3 +1,5 @@
+import Pending from "./Pending.jsx";
+
 const MARK = { pass: "✓", fail: "✕", unknown: "?" };
 
 /** Each check as an exchange: what was asked, what came back.
@@ -66,7 +68,7 @@ function exchange(name, evidence) {
   return [];
 }
 
-export default function Working({ signals }) {
+export default function Working({ signals, pending = [] }) {
   return (
     <section className="working">
       <p className="working-note">
@@ -96,6 +98,7 @@ export default function Working({ signals }) {
           </article>
         );
       })}
+      <Pending names={pending} />
     </section>
   );
 }
