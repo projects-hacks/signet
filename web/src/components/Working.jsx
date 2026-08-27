@@ -43,6 +43,16 @@ function exchange(name, evidence) {
     ];
   }
 
+  if (name === "counterparty" && evidence.brand) {
+    const rows = [
+      ["document claims", evidence.brand],
+      ["signed by", evidence.signingDomain],
+      ["web publishes", evidence.publishedDomain ?? "no domain it will vouch for"],
+    ];
+    if (evidence.sources?.length) rows.push(["sources", `${evidence.sources.length} searched live`]);
+    return rows;
+  }
+
   if (name === "duplicate") {
     return [["fingerprint", evidence.fingerprint]];
   }

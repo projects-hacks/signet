@@ -595,3 +595,69 @@ a.wordmark:hover { color: var(--seal); }
 .confirm:hover:not(:disabled) { background: var(--verify); border-color: var(--verify); }
 .confirm:disabled { opacity: 0.55; cursor: default; }
 .confirm:focus-visible { outline: 2px solid var(--verify); outline-offset: 2px; }
+
+/* ── live diligence ────────────────────────────────────────────────
+
+   The one answer on this page that came from outside the system. Every other
+   check compares the document against records we already hold, and is
+   therefore silent about a company nobody enrolled, which is most of them. */
+
+.counterparty {
+  padding: 1.5rem clamp(1rem, 5vw, 3rem) 2rem;
+  border-top: 2px solid var(--seal);
+  margin-top: 1rem;
+}
+
+.counterparty[data-outcome="fail"] { border-top-color: var(--refuse); }
+.counterparty[data-outcome="unknown"] { border-top-color: var(--doubt); }
+
+.counterparty-lede {
+  max-width: 60ch;
+  margin: 0.6rem 0 1.5rem;
+  font-size: 1.0625rem;
+  line-height: 1.5;
+}
+
+.counterparty-facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+  gap: 1.25rem;
+  margin: 0 0 1.25rem;
+  max-width: 58rem;
+}
+
+.counterparty-facts div { display: flex; flex-direction: column; gap: 0.3rem; }
+
+.counterparty-facts dt {
+  font-family: var(--body);
+  font-weight: 600;
+  font-size: 0.6875rem;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.counterparty-facts dd { margin: 0; font-size: 0.9375rem; }
+.counterparty-facts dd[data-agrees="true"] { color: var(--verify); }
+.counterparty-facts dd[data-agrees="false"] { color: var(--refuse); }
+
+.adverse {
+  border-left: 2px solid var(--doubt);
+  padding: 0.2rem 0 0.2rem 0.9rem;
+  margin-bottom: 1.25rem;
+  max-width: 58rem;
+}
+
+.adverse ul { margin: 0.5rem 0 0; padding-left: 1.1rem; }
+.adverse li { font-size: 0.9375rem; color: var(--muted); margin-bottom: 0.35rem; }
+
+.counterparty-sources {
+  margin: 0;
+  font-size: 0.8125rem;
+  color: var(--muted);
+  max-width: 62ch;
+}
+
+.counterparty-sources a { color: var(--seal); }
+
+.adverse-note { margin: 0.75rem 0 0; font-size: 0.8125rem; color: var(--muted); max-width: 58ch; }

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { adjudicate, checkDocument } from "./api.js";
 import Adjudicate from "./components/Adjudicate.jsx";
 import Copy from "./components/Copy.jsx";
+import Counterparty from "./components/Counterparty.jsx";
 import Regions from "./components/Regions.jsx";
 import Stamp from "./components/Stamp.jsx";
 import Working from "./components/Working.jsx";
@@ -96,6 +97,7 @@ export default function App() {
   const shown = result;
   const fidelity = shown?.signals.find((signal) => signal.name === "fidelity");
   const signature = shown?.signals.find((signal) => signal.name === "signature");
+  const counterparty = shown?.signals.find((signal) => signal.name === "counterparty");
   const issuer = signature?.evidence?.query?.replace(/^_signet\./, "");
   const compared = fidelity?.evidence?.compared ?? [];
   const threshold = fidelity?.evidence?.threshold ?? 0.8;
@@ -234,6 +236,8 @@ export default function App() {
           )}
         </form>
       </section>
+
+      {counterparty && <Counterparty signal={counterparty} />}
 
       {doubtful.length > 0 && (
         <Adjudicate fields={doubtful} onResolve={resolve} busy={resolving} />

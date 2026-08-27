@@ -99,7 +99,7 @@ def test_adverse_coverage_is_reported_and_never_decides() -> None:
     check = CounterpartyCheck(StubResolver("northpost.dev", diligence), FakeRecordStore())
     signal = check.run(context("northpost.dev"))
     assert signal.outcome is Outcome.UNKNOWN
-    assert "Read them before paying" in signal.detail
+    assert "different companies with similar names" in signal.detail
 
 
 def test_a_company_the_web_has_never_heard_of_is_thin_evidence_not_proof() -> None:

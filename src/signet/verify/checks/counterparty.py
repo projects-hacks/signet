@@ -95,13 +95,24 @@ class CounterpartyCheck:
                 evidence,
             )
         if diligence.adverse_mentions:
+            # Named carefully. A live search for a company name returns every
+            # company with a similar name, and the first run of this against
+            # Northpost returned a lottery scam warning about Northpost
+            # Securities, a private equity firm called NorthPost Partners, and a
+            # fencing contractor. None of them is the haulier on the invoice.
+            #
+            # Reporting those as adverse findings about this counterparty would
+            # be the same false accusation this product exists to prevent, so
+            # they are described as what they are: other things wearing the same
+            # name, for a person to look at.
             count = len(diligence.adverse_mentions)
-            noun = "result mentions" if count == 1 else "results mention"
+            noun = "result" if count == 1 else "results"
             return Signal(
                 NAME,
                 Outcome.UNKNOWN,
-                f"{count} recent search {noun} {brand} alongside fraud or insolvency. "
-                "Read them before paying.",
+                f"{count} search {noun} put this name near fraud or insolvency. Some or "
+                "all may be different companies with similar names, which is why this "
+                "is put to you rather than counted against the document.",
                 "serpapi",
                 evidence,
             )
