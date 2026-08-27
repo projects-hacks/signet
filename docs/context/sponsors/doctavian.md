@@ -96,3 +96,75 @@ At least one more required field exists and their errors will not say which.
 Create one envelope in the portal with the browser network tab open and read the
 request body of the `envelope/create` call. That is definitive and takes two
 minutes, and it is faster than continuing to guess against a null reference.
+
+## The schema, from their developer documentation
+
+Their guides at `developers.doctavian.com/en/how-to/signatures/` carry the full
+shape. Recorded here because the earlier section was written from probing and
+was incomplete on exactly the parts that matter.
+
+`POST /signatures/envelope/create` takes four top level arrays and objects:
+
+- `documents[]` with `referenceDocumentId` (integer), `name`,
+  `loadMethod: "Storage"` and `urn` from the upload
+- `recipients[]` with `referenceSignerId` (integer), `name`, `email`,
+  `role` and `mandatory`
+- `fields[]` with `type`, `isRequired`, `referenceSignerId`,
+  `referenceDocumentId`, `name`, and either coordinates
+  (`page`, `positionX`, `positionY`, `width`, `height`) **or** an
+  `anchorString`, never both
+- `envelope{}` with `subject`, `message`, `senderName`, `senderEmail`,
+  `isSignOrder`, `expireInDays`, `notifyWhenOpened`, `notifyWhenSigned`
+
+`anchorString` is the useful part. A distinctive marker printed in the document
+is found at send time and the field is laid over its bounding box, leaving the
+text in place. Coordinates would have to be recomputed every time the paragraph
+above the signature block changes length.
+
+The reference ids are locally unique integers within one envelope and link
+fields to their document and recipient. They are not system ids.
+
+Envelopes are created in `Draft`. `GET /signatures/envelope/{id}/send` is what
+notifies anyone, so a malformed envelope never reaches a person.
+
+## Where it stops, on the demo environment
+
+With that exact payload, create returns **201 Created** and a full set of system
+ids:
+
+```
+{"result":{"statusCode":201,"message":"Created","data":{
+  "envelope":{"id":"b2f0b747-...","status":"Draft"},
+  "documents":[{"id":"f75a5845-..."}],
+  "recipients":[{"id":"c3720664-..."}],
+  "fields":[{"id":"c15747e5-..."}]}}}
+```
+
+Two seconds later that envelope does not exist:
+
+```
+GET /signatures/envelope/b2f0b747-.../get
+-> 400 ENVELOPE_ID_INVALID "Envelope with ID b2f0b747-... does not exist"
+```
+
+`GET /signatures/envelope/{id}/send` fails with a null reference for the same
+reason, and the portal inbox stays empty.
+
+The template route fails earlier and names the cause plainly:
+
+```
+POST /signatures/template/create
+-> 500 FILE_NOT_EXISTS_IN_STORAGE
+   "File with identifier 8413aaf1-... not found in storage."
+```
+
+That is the same behaviour already recorded for document generation, where an
+uploaded template is consumed and the next generation fails with
+`FILE_MISSING_FROM_STORAGE`. **Uploads do not persist on the demo
+environment**, and everything above is downstream of that.
+
+The anchors are genuinely in the generated PDF, confirmed by extracting its
+text, so field placement is not the problem.
+
+Nothing on our side can work around a document that is not there. The adapter is
+written and wired, and the day storage retains an upload it works unchanged.

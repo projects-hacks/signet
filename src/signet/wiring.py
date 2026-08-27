@@ -15,6 +15,8 @@ from datetime import date
 from pathlib import Path
 
 from signet.adapters.dns_multi import DohResolver
+from signet.adapters.doctavian_auth import RefreshingToken
+from signet.adapters.doctavian_signatures import DoctavianSignatures
 from signet.adapters.foxit import FoxitClient, FoxitSignatures
 from signet.adapters.foxit_mcp import FoxitMcp, McpTextReader
 from signet.adapters.llm import ChatClient
@@ -32,6 +34,7 @@ from signet.issue.broker import EnrolmentBroker
 from signet.issue.publish import KeyPublisher
 from signet.ports.documents import DocumentExtractor
 from signet.ports.intelligence import EntityResolver
+from signet.ports.signature_gateway import SignatureGateway
 from signet.ports.store import RecordStore
 from signet.verify.pipeline import VerificationPipeline
 from signet.verify.registry import default_checks
@@ -49,18 +52,39 @@ def resolver_for(settings: Settings, store: RecordStore) -> EntityResolver | Non
     return SerpApiResolver(settings.serpapi.values[0], store)
 
 
+def signature_gateway(settings: Settings) -> SignatureGateway:
+    """Which service puts the authorisation in front of a person.
+
+    Two implementations of one port. The broker asks for a human signature and
+    is told nothing about who provides it, which is the point: the gate is a
+    boundary in the design rather than a vendor we happened to pick, and
+    swapping this moves none of the safety properties.
+    """
+    if settings.signature_gateway == "doctavian":
+        api_key, base_url = settings.doctavian.require()
+        return DoctavianSignatures(
+            api_key=api_key,
+            token_provider=RefreshingToken(api_key, base_url),
+            base_url=base_url,
+            sender_email=settings.sender_email,
+        )
+    host, client_id, client_secret = settings.foxit.require()
+    return FoxitSignatures(
+        FoxitClient(client_id, client_secret, host), send_now=settings.send_envelopes
+    )
+
+
 def build_broker(settings: Settings, store_path: Path) -> EnrolmentBroker:
     """The only thing in the system that publishes a key."""
     host, client_id, client_secret = settings.foxit.require()
     namecom_user, namecom_token, namecom_url = settings.namecom.require()
-    foxit = FoxitClient(client_id, client_secret, host)
     # The reversible document work goes through Foxit's own MCP server, which is
     # what their challenge asks for. Signing does not: it is called directly,
     # from here, because their catalogue deliberately leaves it out and we agree
     # with the shape of that decision.
     return EnrolmentBroker(
         renderer=document_renderer(settings),
-        gateway=FoxitSignatures(foxit, send_now=settings.send_envelopes),
+        gateway=signature_gateway(settings),
         reader=McpTextReader(
             FoxitMcp(host, client_id, client_secret, interpreter=settings.foxit_mcp_python)
         ),

@@ -83,6 +83,8 @@ class Settings:
     allowed_origins: tuple[str, ...]
     send_envelopes: bool
     foxit_mcp_python: str | None
+    signature_gateway: str
+    sender_email: str
     doctavian_signatures: Credentials
     namecom: Credentials
     serpapi: Credentials
@@ -183,6 +185,8 @@ def load_settings() -> Settings:
         allowed_origins=_origins(_get("SIGNET_ALLOWED_ORIGINS")),
         send_envelopes=_get("SIGNET_SEND_ENVELOPES", "1") != "0",
         foxit_mcp_python=_get("FOXIT_MCP_PYTHON") or None,
+        signature_gateway=_get("SIGNET_SIGNATURE_GATEWAY", "foxit").lower(),
+        sender_email=_get("SIGNET_SENDER_EMAIL"),
         doctavian_signatures=Credentials(
             "Doctavian Signatures",
             # Their portal scopes the key by API version. If it turns out to

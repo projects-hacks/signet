@@ -27,6 +27,8 @@ def settings() -> Settings:
         allowed_origins=(),
         send_envelopes=False,
         foxit_mcp_python=None,
+        signature_gateway="foxit",
+        sender_email="",
         doctavian_signatures=unset,
         namecom=unset,
         serpapi=unset,

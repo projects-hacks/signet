@@ -109,11 +109,22 @@ def build() -> None:
         space_after=20,
     )
 
+    # Two signing surfaces on one page, because the human gate is a port with
+    # two implementations and either can be the one that runs.
+    #
+    # Foxit reads text tags: ${signfield:1:y}. Doctavian finds an anchor string
+    # and places its field over the bounding box, leaving the text in place.
+    # Both are inert marks to the other, so a document carrying both renders
+    # correctly whichever gateway sends it.
     line(document, "SIGNED FOR {!Enrolment.Brand}", size=9, bold=True, space_after=8)
     line(document, "Name       ${textfield:1:y:Signer_Name:________________}", space_after=6)
     line(document, "Role       ${textfield:1:y:Signer_Role:________________}", space_after=6)
-    line(document, "Signature  ${signfield:1:y:____________}", space_after=6)
-    line(document, "Date       ${datefield:1:y:Date_Signed:__________}", space_after=0)
+    line(document, "Signature  ${signfield:1:y:____________}   _SIG_ISSUER_", space_after=6)
+    line(
+        document,
+        "Date       ${datefield:1:y:Date_Signed:__________}   _DATE_ISSUER_",
+        space_after=0,
+    )
 
     OUT.parent.mkdir(parents=True, exist_ok=True)
     document.save(OUT)
