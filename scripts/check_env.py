@@ -12,6 +12,8 @@ import os
 import sys
 from pathlib import Path
 
+import httpx
+
 from signet.config import Settings, load_settings
 from signet.errors import AdapterError
 
@@ -91,10 +93,10 @@ def probe_live(settings: Settings) -> list[tuple[str, str, str]]:
             results.append(("name.com", FAILED, str(exc)[:70]))
 
     if settings.doctavian.configured:
-        api_key, token = settings.doctavian.values
+        api_key, token, base_url = settings.doctavian.values
         try:
             renderer = DoctavianRenderer(
-                api_key=api_key, token_provider=lambda: token, template_urns={}
+                api_key=api_key, token_provider=lambda: token, templates={}, base_url=base_url
             )
             renderer.ping()
             results.append(("Doctavian", OK, "both the token and the key were accepted"))
@@ -111,6 +113,35 @@ def probe_live(settings: Settings) -> list[tuple[str, str, str]]:
             results.append(("Nutrient", OK, f"extracted {read} from a probe page"))
         except AdapterError as exc:
             results.append(("Nutrient", FAILED, str(exc)[:70]))
+
+    if settings.foxit.configured:
+        host, client_id, client_secret = settings.foxit.values
+        try:
+            # A non billable eSign call. Creating an envelope would cost five of the
+            # five hundred credits the year allows.
+            response = httpx.get(
+                f"{host}/esign/api/v1/webhook/channellist",
+                headers={"client_id": client_id, "client_secret": client_secret},
+                timeout=20.0,
+            )
+            state = OK if response.is_success else FAILED
+            results.append(("Foxit", state, f"eSign gateway answered {response.status_code}"))
+        except httpx.HTTPError as exc:
+            results.append(("Foxit", FAILED, str(exc)[:70]))
+
+    if settings.llm.configured:
+        base_url, api_key, model = settings.llm.values
+        try:
+            response = httpx.get(
+                f"{base_url}/models", headers={"Authorization": f"Bearer {api_key}"}, timeout=20.0
+            )
+            known = {entry["id"] for entry in response.json().get("data", [])}
+            if model in known:
+                results.append(("LLM", OK, f"{model} is available on this key"))
+            else:
+                results.append(("LLM", FAILED, f"{model} is not offered to this account"))
+        except (httpx.HTTPError, KeyError, ValueError) as exc:
+            results.append(("LLM", FAILED, str(exc)[:70]))
 
     if settings.xano.configured:
         base_url, api_key = settings.xano.values
