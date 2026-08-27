@@ -130,6 +130,42 @@ def build() -> None:
         "The key is published at _signet.{!Invoice.PayeeDomain}. Check it with dig and "
         "openssl, without an account here.",
         size=8,
+        space_after=26,
+    )
+
+    # A real invoice fills its page. The terms below are ordinary for freight
+    # and they are also what an interception attempt has to talk its way past,
+    # which is why the remittance reference is stated rather than assumed.
+    line(document, "PAYMENT TERMS", size=9, bold=True, space_after=4)
+    line(
+        document,
+        "Net 30 days from the date of issue. Interest on overdue amounts accrues "
+        "at 8 percent above base rate from the day after the due date.",
+        size=9,
+        space_after=10,
+    )
+    line(document, "REMITTANCE", size=9, bold=True, space_after=4)
+    line(
+        document,
+        "Quote {!Invoice.Number} as the payment reference. Send remittance advice "
+        "to accounts@{!Invoice.PayeeDomain}. Payments without a reference are held "
+        "unallocated.",
+        size=9,
+        space_after=10,
+    )
+    line(document, "QUERIES", size=9, bold=True, space_after=4)
+    line(
+        document,
+        "Raise any query within 14 days of the invoice date, quoting the invoice "
+        "number. Bank details are never amended by email or telephone. A request "
+        "to pay a different account is a fraud attempt and should be reported.",
+        size=9,
+        space_after=10,
+    )
+    line(
+        document,
+        "{!Invoice.PayeeName}  ·  {!Invoice.PayeeDomain}  ·  page 1 of 1",
+        size=8,
         space_after=0,
     )
 
