@@ -1,50 +1,55 @@
-/* The examination record.
-   Cool paper with a green bias rather than the warm cream that every generated
-   page reaches for. The three semantic colours are also the stamp colour, so
-   the boldest mark on the page carries the verdict instead of decorating it. */
+/* The examination record, set in the same hand as the rest of the site.
+
+   Stamp ink on a cool near-white. The three semantic colours are the stamp
+   colours, so the boldest mark on the page carries the verdict rather than
+   decorating it. */
 
 :root {
-  --paper: #f1f4f1;
-  --sheet: #fbfcfa;
-  --ink: #14201e;
-  --muted: #5c6b66;
-  --rule: #c6d0c8;
+  --paper: #f6f6f3;
+  --sheet: #ffffff;
+  --ink: #14161a;
+  --muted: #676d76;
+  --rule: #dcdcd6;
 
-  --verify: #1b6b57;
-  --doubt: #9a6a12;
-  --refuse: #7e2b36;
+  --seal: #1b3a6b;
+  --verify: #16624a;
+  --doubt: #8a5a10;
+  --refuse: #a32a21;
 
-  --display: "Saira Condensed", "Helvetica Neue", Arial, sans-serif;
-  --body: Spectral, Georgia, "Times New Roman", serif;
-  --data: "Spline Sans Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  --display: Fraunces, "Iowan Old Style", Georgia, serif;
+  --body: "Public Sans", "Helvetica Neue", Arial, sans-serif;
+  --data: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
 
-  --measure: 66ch;
+  --measure: 62ch;
   --step: clamp(0.75rem, 0.6rem + 0.5vw, 1rem);
 }
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --paper: #101715;
-    --sheet: #17201d;
-    --ink: #e6ece7;
-    --muted: #8fa39b;
-    --rule: #2b3833;
-    --verify: #5fbc9f;
-    --doubt: #d3a047;
-    --refuse: #d98a94;
+    --paper: #101215;
+    --sheet: #171a1f;
+    --ink: #e9eaec;
+    --muted: #949aa3;
+    --rule: #282c33;
+    --seal: #7ba3dd;
+    --verify: #4fb894;
+    --doubt: #d0a153;
+    --refuse: #e0827a;
   }
 }
 
 :root[data-theme="dark"] {
-  --paper: #101715;
-  --sheet: #17201d;
-  --ink: #e6ece7;
-  --muted: #8fa39b;
-  --rule: #2b3833;
-  --verify: #5fbc9f;
-  --doubt: #d3a047;
-  --refuse: #d98a94;
+  --paper: #101215;
+  --sheet: #171a1f;
+  --ink: #e9eaec;
+  --muted: #949aa3;
+  --rule: #282c33;
+  --seal: #7ba3dd;
+  --verify: #4fb894;
+  --doubt: #d0a153;
+  --refuse: #e0827a;
 }
+
 
 * { box-sizing: border-box; }
 
@@ -59,12 +64,12 @@ body {
 }
 
 .label {
-  font-family: var(--display);
-  font-weight: 500;
-  font-size: 0.8125rem;
-  letter-spacing: 0.16em;
+  font-family: var(--body);
+  font-weight: 600;
+  font-size: 0.75rem;
+  letter-spacing: 0.11em;
   text-transform: uppercase;
-  color: var(--muted);
+  color: var(--seal);
 }
 
 .mono { font-family: var(--data); font-size: 0.8125rem; }
@@ -81,12 +86,13 @@ body {
   flex-wrap: wrap;
 }
 
+/* Set exactly as it is on the homepage. A visitor arriving here from there
+   should not have to wonder whether they left the site. */
 .wordmark {
   font-family: var(--display);
   font-weight: 700;
-  font-size: 1.375rem;
-  letter-spacing: 0.3em;
-  text-transform: uppercase;
+  font-size: 1.25rem;
+  letter-spacing: -0.02em;
   margin: 0;
 }
 
@@ -329,7 +335,7 @@ body {
 /* The wordmark became a link back to the homepage and picked up the browser's
    default link paint with it. */
 a.wordmark { color: inherit; text-decoration: none; }
-a.wordmark:hover { color: var(--verify); }
+a.wordmark:hover { color: var(--seal); }
 
 /* ── waiting, and what it is allowed to claim ──────────────────────
 

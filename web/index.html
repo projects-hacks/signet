@@ -3,407 +3,196 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="theme-color" content="#F1F4F1" media="(prefers-color-scheme: light)">
-<meta name="theme-color" content="#101715" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#F6F6F3" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#101215" media="(prefers-color-scheme: dark)">
 <title>Signet</title>
-<meta name="description" content="Documents that prove where they came from. An issuer publishes a key on their own domain, every document carries a signature over its payment fields, and anyone can check it with dig and openssl.">
+<meta name="description" content="Documents that prove who sent them. The issuer publishes a key on their own domain, and anyone can check an invoice against it in two commands.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Saira+Condensed:wght@500;600;700&family=Spectral:ital,wght@0,300;0,400;0,600;1,400&family=Spline+Sans+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=JetBrains+Mono:wght@400;500&family=Public+Sans:wght@400;500;600&display=swap">
 <link rel="stylesheet" href="/src/home.css">
 </head>
 <body>
 
-<header class="masthead">
+<header class="bar">
   <a class="wordmark" href="/">Signet</a>
   <nav>
-    <a href="#how">How</a>
-    <a href="#proof">Check it yourself</a>
-    <a href="#acts">Three documents</a>
-    <a href="#stack">Built with</a>
-    <a href="/verify/">Verify</a>
+    <a href="#proof">Proof</a>
+    <a href="#cases">Cases</a>
+    <a href="#built">Built with</a>
   </nav>
+  <a class="button small" href="/verify/">Check a document</a>
 </header>
 
 <main>
 
 <section class="hero">
-  <div class="holds hero-grid">
-    <div class="hero-words">
-      <p class="label kicker">Proof of origin for documents</p>
-      <h1>An invoice should be able to prove who sent it.</h1>
-      <p class="lede">
-        Signet puts the issuer's own domain behind every document. They publish a
-        public key in DNS. Each document carries a signature over the fields that
-        decide where money goes. Anyone can check it, with no account and nothing
-        installed.
-      </p>
-      <div class="actions">
-        <a class="button" href="/verify/">Verify a document</a>
-        <a class="button quiet" href="#proof">Check one by hand</a>
-      </div>
-      <p class="note hero-note">
-        That page is real. It was generated, signed and verified by the system
-        described below, and the mark on it scans.
-      </p>
-    </div>
-
-    <figure class="exhibit" data-stamp>
-      <img src="/documents/act1-genuine.jpg" width="900" height="1165"
-           alt="A Northpost freight invoice for 15,580 US dollars carrying a Signet mark and a QR code.">
-      <span class="stamp is-certified" aria-hidden="true">Certified</span>
-      <b class="pin pin-brand"><span>Signed by <code>northpost.dev</code></span><i></i></b>
-      <b class="pin pin-pay"><span>These six fields are what the signature covers</span><i></i></b>
-      <b class="pin pin-mark"><span>The same mark, readable by any QR scanner</span><i></i></b>
-    </figure>
-  </div>
-</section>
-
-<section class="problem">
-  <div class="holds">
-    <h2>Detection is losing</h2>
-    <p>
-      The usual answer to a suspicious document is to inspect it: look for
-      compression artefacts, odd fonts, an inconsistent layout. That worked when
-      forgery was hard. It is no longer hard.
+  <div class="hero-words">
+    <p class="eyebrow">Proof of origin for documents</p>
+    <h1>Know who sent the invoice before you pay it.</h1>
+    <p class="lede">
+      A company publishes a key on their own web domain. Every invoice they send
+      carries a signature over the account number and the amount. If either is
+      changed afterwards, the signature stops matching, and anyone can see it.
     </p>
-    <div class="figures">
-      <div class="figure">
-        <b>13.33%</b>
-        <p>of authentic documents are falsely flagged by detection tools, so the
-        honest sender pays for the fraudster.</p>
-      </div>
-      <div class="figure">
-        <b>0 to 71%</b>
-        <p>the share of flagged fake receipts that were machine generated, in
-        fourteen months.</p>
-      </div>
-      <div class="figure">
-        <b>One question</b>
-        <p>Signet asks the issuer instead of the artefact. Not "does this look
-        real", but "did you send this".</p>
-      </div>
+    <div class="actions">
+      <a class="button" href="/verify/">Check a document</a>
+      <a class="button quiet" href="#proof">See the proof</a>
     </div>
   </div>
+
+  <figure class="exhibit" data-stamp>
+    <img src="/documents/act1-genuine.jpg" width="900" height="1165"
+         alt="A freight invoice for 15,580 US dollars carrying a signature mark and a QR code.">
+    <span class="stamp is-certified" aria-hidden="true">Certified</span>
+  </figure>
 </section>
 
-<section id="how" class="how">
+<section class="claim">
+  <p><b>13%</b> of genuine documents are wrongly flagged by tools that guess from how a page looks.</p>
+  <p class="claim-answer">Signet does not guess. It asks the sender.</p>
+</section>
+
+<section id="how">
   <div class="holds">
-    <p class="label">How it works</p>
-    <h2>Three moves, and none of them involve us</h2>
-    <div class="steps">
-      <div class="step">
-        <h3>The issuer publishes a key</h3>
-        <p>
-          One TXT record on the domain they already own. Nobody else can put it
-          there, which is the entire trust anchor. No certificate authority, no
-          registry, no account with Signet.
-        </p>
-        <pre><span class="prompt">_signet.northpost.dev  TXT</span>
-"v=SIGNET1; k=ed25519;
- p=Kqf0GFh29fslh099Tr9ruRvy6qI7ITeKC5KY8Wt0YWI="</pre>
-      </div>
-      <div class="step">
-        <h3>The document carries a signature</h3>
-        <p>
-          Amount, currency, account number, document id, issuer, timestamp. The
-          fields that decide where money goes, signed as one canonical string and
-          printed on the page as a QR code and as text.
-        </p>
-        <pre>S1|amt=15580.00;bic=NWBKGB2L;
-cur=USD;iban=GB29NWBK60161331926819;
-id=INV-2026-0611;iss=northpost.dev|<span class="out">T2DLIRT…</span></pre>
-      </div>
-      <div class="step">
-        <h3>The reader checks it</h3>
-        <p>
-          Read the key from DNS, verify the signature over the fields, compare
-          those fields against what the page actually shows. Two of those three
-          need no software at all.
-        </p>
-        <pre><span class="prompt">$</span> openssl pkeyutl -verify …
-<span class="out">Signature Verified Successfully</span></pre>
-      </div>
-    </div>
+    <h2>Three steps</h2>
+    <ol class="steps">
+      <li>
+        <h3>The company publishes a key</h3>
+        <p>One record on the domain they already own. Nobody else can put it there.</p>
+      </li>
+      <li>
+        <h3>Their invoices carry a signature</h3>
+        <p>Over the account number, the amount and the reference. Printed as a QR code.</p>
+      </li>
+      <li>
+        <h3>You check it</h3>
+        <p>Drop the document here, or run two commands yourself. No account either way.</p>
+      </li>
+    </ol>
   </div>
 </section>
 
 <section id="proof" class="proof" data-terminal>
   <div class="holds">
-    <p class="label">The claim, and the way to falsify it</p>
-    <h2>No account. No install. Two commands.</h2>
+    <h2>Two commands, and one changed digit</h2>
     <p class="proof-intro">
-      If this does not work, nothing else on this page matters. So here it is,
-      running against a document Signet issued, using tools that were already on
-      your machine.
+      Running against a real invoice, with tools already on your machine. The
+      second half is the part that matters.
     </p>
-    <div class="terminal" role="img" aria-label="A terminal session fetching the key from DNS and verifying a document signature with openssl, which succeeds, then failing after one digit of the amount is altered.">
+    <div class="terminal" role="img" aria-label="A terminal session fetching a key from DNS and verifying an invoice signature, which succeeds, then failing after one digit of the amount is altered.">
       <div class="terminal-bar"><span></span><span></span><span></span><em>northpost.dev</em></div>
       <pre class="terminal-body"><code data-script></code><span class="cursor" aria-hidden="true"></span></pre>
     </div>
-    <p class="note">
-      Full walkthrough, including how to pull the mark off the page, is in
-      <a href="https://github.com/rajeev-chaurasia/signet/blob/main/docs/verify-by-hand.md">docs/verify-by-hand.md</a>.
-    </p>
   </div>
 </section>
 
-<section id="acts" class="acts">
+<section id="cases">
   <div class="holds">
-    <p class="label">Three documents, one system</p>
-    <h2>The same invoice, told three ways</h2>
-    <p>
-      All three were generated by the real pipeline and run through the real
-      verifier. The second and third are what an attacker actually sends.
+    <h2>The same invoice, three ways</h2>
+    <p class="section-lede">
+      All three were produced and checked by the running system. The second and
+      third are what a fraudster actually sends.
     </p>
 
-    <div class="triptych">
-      <figure class="act">
-        <div class="act-page">
+    <div class="cases">
+      <figure>
+        <div class="page">
           <img src="/documents/act1-genuine.jpg" width="900" height="1165" loading="lazy"
-               alt="The genuine Northpost invoice.">
+               alt="The genuine invoice.">
           <span class="stamp small is-certified">Certified</span>
         </div>
         <figcaption>
           <h3>Genuine</h3>
-          <p>Signed by <code>northpost.dev</code>, and the page matches the
-          signature field for field.</p>
+          <p>Sent by the company it says, and nothing on the page has moved since.</p>
         </figcaption>
       </figure>
 
-      <figure class="act">
-        <div class="act-page">
+      <figure>
+        <div class="page">
           <img src="/documents/act2-doctored.jpg" width="900" height="1165" loading="lazy"
                alt="The same invoice with a different bank account printed on it.">
           <span class="stamp small is-flagged">Flagged</span>
         </div>
         <figcaption>
-          <h3>Altered after issue</h3>
-          <p>The signature still verifies perfectly. The account number on the
-          page is not the one it covers.</p>
+          <h3>Account swapped</h3>
+          <p>Intercepted in transit and the bank details changed. Eighteen characters.</p>
         </figcaption>
       </figure>
 
-      <figure class="act">
-        <div class="act-page">
+      <figure>
+        <div class="page">
           <img src="/documents/act3-lookalike.jpg" width="900" height="1165" loading="lazy"
-               alt="An invoice from a lookalike domain, north-post.dev.">
+               alt="An invoice from a lookalike domain.">
           <span class="stamp small is-flagged">Flagged</span>
         </div>
         <figcaption>
-          <h3>A lookalike domain</h3>
-          <p>Real domain, real key, real signature. Nothing is forged. The name
-          is the forgery.</p>
+          <h3>Nearly the right company</h3>
+          <p>A real domain one hyphen away from the real one. Nothing is forged.</p>
         </figcaption>
       </figure>
     </div>
 
     <div class="swap">
-      <p class="label">What changed between the first two</p>
+      <p class="eyebrow">What changed in the second one</p>
       <div class="swap-pair">
         <figure>
           <figcaption><span class="tag is-certified">Signed</span></figcaption>
           <img src="/documents/iban-true.jpg" width="760" height="175" loading="lazy"
-               alt="The pay-to block showing account GB29NWBK60161331926819.">
+               alt="The pay-to block showing the real account number.">
         </figure>
         <figure>
           <figcaption><span class="tag is-flagged">Printed</span></figcaption>
           <img src="/documents/iban-swapped.jpg" width="760" height="175" loading="lazy"
-               alt="The same block showing a different account, GB94BARC10201530093459.">
+               alt="The same block showing a different account number.">
         </figure>
       </div>
-      <p class="note">
-        Eighteen characters. Nothing else on the page moved, and every
-        cryptographic check still passes. Only comparing the page against what
-        was signed catches it.
-      </p>
-    </div>
-
-    <div class="scroller">
-      <table>
-        <caption class="label">Actual verifier output</caption>
-        <thead>
-          <tr><th>Document</th><th>Verdict</th><th>What the verifier said</th></tr>
-        </thead>
-        <tbody>
-          <tr>
-            <td>Genuine</td>
-            <td class="verdict is-certified">Certified</td>
-            <td>Issued by northpost.dev on 2026-08-27T07:32:46Z.</td>
-          </tr>
-          <tr>
-            <td>Altered</td>
-            <td class="verdict is-flagged">Flagged</td>
-            <td>The page shows GB94BARC10201530093459 where the signature covers GB29NWBK60161331926819.</td>
-          </tr>
-          <tr>
-            <td>Lookalike</td>
-            <td class="verdict is-flagged">Flagged</td>
-            <td>This document names Northpost, but north-post.dev is North Post Holdings.</td>
-          </tr>
-        </tbody>
-      </table>
     </div>
   </div>
 </section>
 
-<section id="checks" class="checks-section">
+<section id="built">
   <div class="holds">
-    <p class="label">Six questions, asked separately</p>
-    <h2>Every check reports its own answer, and the verdict is a function of all of them</h2>
-    <p>
-      No model decides anything. <code>decide(signals)</code> is pure and total:
-      the same signals always produce the same verdict, which is why it has a
-      golden test suite rather than a confidence score.
-    </p>
-    <div class="checks">
-      <div class="check"><h3>Signature</h3><p>Does the key at the issuer's domain verify this signature over these exact fields?</p></div>
-      <div class="check"><h3>Identity</h3><p>Is that domain the one enrolled for the brand the document claims to be from?</p></div>
-      <div class="check"><h3>Lookalike</h3><p>Does the signing domain read as somebody else's, while not being theirs?</p></div>
-      <div class="check"><h3>Fidelity</h3><p>Does the page in front of you show what the signature actually covers?</p></div>
-      <div class="check"><h3>Duplicate</h3><p>Has this exact document been submitted here before?</p></div>
-      <div class="check"><h3>Counterparty</h3><p>What does the live web publish for this brand, and does it agree with who signed?</p></div>
-    </div>
-    <p class="note">
-      A check that cannot reach its evidence reports unknown, never pass.
-      Certification needs positive evidence, so an outage lowers a verdict rather
-      than inventing one.
-    </p>
-  </div>
-</section>
-
-<section id="stack" class="stack-section">
-  <div class="holds">
-    <p class="label">Built with</p>
-    <h2>Where each service actually sits in the pipeline</h2>
-    <p>
-      Every one of these is load bearing. Remove it and something the product
-      claims stops being true.
-    </p>
-
-    <div class="pipeline" aria-hidden="true">
-      <span class="node">Messy request</span>
-      <span class="node">Diligence</span>
-      <span class="node">Generate</span>
-      <span class="node">Sign</span>
-      <span class="node">Publish key</span>
-      <span class="node">Human signs</span>
-      <span class="node is-end">Verify</span>
-    </div>
-
-    <div class="stack">
-      <article class="tool">
-        <p class="role">Issuance</p>
-        <h3>Doctavian</h3>
-        <p>
-          Generates the document from a verified record. The template loops over
-          the line items, sums them, and shows a high value warning only when the
-          total crosses the threshold, so the payee block is never typed by hand.
-        </p>
-        <p class="where">adapters/doctavian.py</p>
-      </article>
-
-      <article class="tool">
-        <p class="role">The trust anchor</p>
-        <h3>name.com</h3>
-        <p>
-          Publishes the issuer's public key as a TXT record on their own domain,
-          and answers the registrar sweep that finds which permutations of that
-          domain somebody already owns.
-        </p>
-        <p class="where">adapters/namecom.py, issue/sweep.py</p>
-      </article>
-
-      <article class="tool">
-        <p class="role">Reading the page</p>
-        <h3>Nutrient</h3>
-        <p>
-          Extracts the payment fields from the document as it was received, with
-          a confidence and a bounding box for each. That is what the fidelity
-          check compares against the signature, and what the reader sees
-          highlighted on the page.
-        </p>
-        <p class="where">adapters/nutrient.py</p>
-      </article>
-
-      <article class="tool">
-        <p class="role">Live diligence</p>
-        <h3>SerpApi</h3>
-        <p>
-          Asks the open web which domain a brand actually publishes. This is the
-          only check that can catch a forger impersonating a company that never
-          enrolled with anyone, which is most companies.
-        </p>
-        <p class="where">adapters/serpapi.py</p>
-      </article>
-
-      <article class="tool">
-        <p class="role">The human gate</p>
-        <h3>Foxit</h3>
-        <p>
-          PDF Services does the reversible work: assemble the enrolment
-          authorisation, then read it back as text to confirm the authorisation
-          hash survived into the file. eSign puts it in front of a person. The
-          key is published only after the executed document comes back carrying
-          that hash.
-        </p>
-        <p class="where">adapters/foxit.py</p>
-      </article>
-
-      <article class="tool">
-        <p class="role">System of record</p>
-        <h3>Xano</h3>
-        <p>
-          Issuers, the submissions ledger that makes duplicate detection real,
-          the evidence cache that keeps the search budget honest, and the append
-          only audit log behind every verdict.
-        </p>
-        <p class="where">adapters/xano.py, xano/</p>
-      </article>
-
-      <article class="tool">
-        <p class="role">The agent</p>
-        <h3>NVIDIA NIM</h3>
-        <p>
-          Drives enrolment from a plain sentence. It orchestrates and never
-          decides: every gate is a precondition in code, because a model told to
-          hurry will skip a check it was asked to perform.
-        </p>
-        <p class="where">docs/adr/0007</p>
-      </article>
-
-      <article class="tool">
-        <p class="role">Cryptography</p>
-        <h3>Ed25519, over DNS</h3>
-        <p>
-          Signatures are sixty four bytes and keys are thirty two, which is what
-          lets a whole signed payload fit in one QR code and one TXT record.
-          Read from two independent resolvers that have to agree.
-        </p>
-        <p class="where">core/signing.py, adapters/dns_multi.py</p>
-      </article>
+    <h2>Built with</h2>
+    <div class="logos">
+      <a class="logo" href="https://www.doctavian.com" rel="noreferrer noopener">
+        <img src="/sponsors/doctavian.png" alt="Doctavian" loading="lazy">
+        <span>Produces the invoice from verified data</span>
+      </a>
+      <a class="logo" href="https://www.name.com" rel="noreferrer noopener">
+        <img src="/sponsors/namecom.png" alt="name.com" loading="lazy">
+        <span>Holds the key on the company's own domain</span>
+      </a>
+      <a class="logo" href="https://www.nutrient.io" rel="noreferrer noopener">
+        <img src="/sponsors/nutrient.jpg" alt="Nutrient" loading="lazy">
+        <span>Reads the page as it actually arrived</span>
+      </a>
+      <a class="logo" href="https://serpapi.com" rel="noreferrer noopener">
+        <img src="/sponsors/serpapi.png" alt="SerpApi" loading="lazy">
+        <span>Checks the company against the live web</span>
+      </a>
+      <a class="logo" href="https://www.foxit.com" rel="noreferrer noopener">
+        <img src="/sponsors/foxit.png" alt="Foxit" loading="lazy">
+        <span>Puts the sign-up in front of a person</span>
+      </a>
+      <a class="logo" href="https://www.xano.com" rel="noreferrer noopener">
+        <img src="/sponsors/xano.png" alt="Xano" loading="lazy">
+        <span>Keeps the records and the audit trail</span>
+      </a>
     </div>
   </div>
 </section>
 
 <section class="honest">
   <div class="holds">
-    <h2>What a certified verdict does not mean</h2>
-    <p>
-      It means the named domain signed these fields and they have not changed
-      since. It does not mean the goods arrived, the work was done, or that the
-      invoice is owed. A real company can certify a real invoice for something
-      you never ordered.
-    </p>
-    <p>
-      Signet moves the argument from "is this document genuine" to "is this
-      charge correct", which is the argument you can actually have with a
-      counterparty. The rest of the limits are written down rather than left for
-      you to discover.
-    </p>
+    <h2>What a green stamp does not mean</h2>
+    <ul class="limits">
+      <li><b>Not that you owe it.</b> A real company can send a real invoice for something you never ordered.</li>
+      <li><b>Not forever.</b> Whoever controls the domain can sign as that company, so a hijacked domain signs too.</li>
+      <li><b>Not a substitute for reading it.</b> Signet answers who sent this, not whether the charge is right.</li>
+    </ul>
     <div class="actions">
-      <a class="button quiet" href="https://github.com/rajeev-chaurasia/signet/blob/main/docs/limits.md">Read the limits</a>
-      <a class="button" href="/verify/">Verify a document</a>
+      <a class="button" href="/verify/">Check a document</a>
     </div>
   </div>
 </section>
@@ -411,10 +200,9 @@ id=INV-2026-0611;iss=northpost.dev|<span class="out">T2DLIRT…</span></pre>
 </main>
 
 <footer>
-  <div class="holds">
-    <p>Signet. Built for the DevNetwork API, Cloud and AI Hackathon, 2026.</p>
-    <p><a href="https://github.com/rajeev-chaurasia/signet">Source on GitHub</a></p>
-  </div>
+  <span>Signet</span>
+  <a href="https://github.com/projects-hacks/signet">Source</a>
+  <a href="https://api-cloud-ai-hackathon-2026.devpost.com/">DevNetwork Hackathon 2026</a>
 </footer>
 
 <script type="module" src="/src/home.js"></script>
