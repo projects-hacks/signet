@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { adjudicate, examineDocument } from "./api.js";
+import { adjudicate, checkDocument } from "./api.js";
 import Adjudicate from "./components/Adjudicate.jsx";
 import Copy from "./components/Copy.jsx";
 import Regions from "./components/Regions.jsx";
@@ -20,8 +20,8 @@ export default function App() {
   const [live, setLive] = useState(null);
   const [error, setError] = useState(null);
   const [over, setOver] = useState(false);
-  /* Every examination this session, newest first. Revisiting one costs nothing
-     and never re-runs it. Re-examining is deliberately a separate act: the same
+  /* Every check this session, newest first. Revisiting one costs nothing
+     and never re-runs it. Re-checking is deliberately a separate act: the same
      document submitted twice is genuinely a different question, because the
      second time it has been seen before. */
   const [history, setHistory] = useState([]);
@@ -45,7 +45,7 @@ export default function App() {
     setError(null);
   }
 
-  async function examine(event) {
+  async function check(event) {
     event.preventDefault();
     if (!file || live) return;
     setError(null);
@@ -54,7 +54,7 @@ export default function App() {
     running.current = controller;
 
     try {
-      const decision = await examineDocument(
+      const decision = await checkDocument(
         file,
         brand,
         (message) => {
@@ -134,14 +134,14 @@ export default function App() {
         <a className="wordmark" href="/">
           Signet
         </a>
-        <span className="label">Examination record</span>
+        <span className="label">Document check</span>
       </header>
 
-      <section className="examination">
+      <section className="checking">
         <div className="sheet" data-busy={String(Boolean(live))}>
           {preview ? (
             <>
-              <img src={preview} alt="The document under examination" />
+              <img src={preview} alt="The document being checked" />
               {shown && (
                 <Regions compared={compared} threshold={fidelity?.evidence?.threshold ?? 0.8} />
               )}
@@ -157,16 +157,16 @@ export default function App() {
           )}
         </div>
 
-        <form className="finding" onSubmit={examine}>
+        <form className="finding" onSubmit={check}>
           {shown ? (
             <>
-              <p className="label">The finding</p>
+              <p className="label">The result</p>
               <p className="finding-reason">{shown.reason}</p>
               <p style={{ margin: 0, color: "var(--muted)" }}>{READING[shown.verdict]}</p>
             </>
           ) : live ? (
             <>
-              <p className="label">Examining</p>
+              <p className="label">Checking</p>
               <p className="finding-reason">
                 {live.signals.length} of {live.checks.length} checks answered.
               </p>
@@ -174,7 +174,7 @@ export default function App() {
             </>
           ) : (
             <>
-              <p className="label">Examine a document</p>
+              <p className="label">Check a document</p>
               <p className="finding-reason">
                 Who really sent this, and does the page still say what they signed?
               </p>
@@ -218,12 +218,12 @@ export default function App() {
             />
           </label>
 
-          <button type="submit" className="dropzone" disabled={!file || Boolean(live)}>
-            <span className="label">{live ? "Examining" : "Examine"}</span>
-            <span className="mono">
+          <button type="submit" className="run" disabled={!file || Boolean(live)}>
+            <span>{live ? "Checking" : "Check this document"}</span>
+            <span className="mono run-note">
               {live
                 ? (live.signals.at(-1)?.name ?? "reading the mark").replace("_", " ")
-                : "checks the signature against public DNS"}
+                : "reads the key from public DNS"}
             </span>
           </button>
 
@@ -245,7 +245,7 @@ export default function App() {
 
       {history.length > 1 && (
         <section className="history">
-          <p className="label">Examined this session</p>
+          <p className="label">Checked this session</p>
           <ul>
             {history.map((entry) => (
               <li key={entry.id}>

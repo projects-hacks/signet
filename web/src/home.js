@@ -109,13 +109,16 @@ if (screen) {
         await sleep(REPLAY_MS);
       }
     };
+    // A low threshold on purpose. On a narrow window the section is taller than
+    // the viewport, so a threshold of any size is never met and the terminal
+    // sits there black and empty, which is exactly what it looked like.
     const watcher = new IntersectionObserver(
       (entries) => {
         for (const entry of entries) {
           if (entry.isIntersecting && !running) loop();
         }
       },
-      { threshold: 0.3 },
+      { threshold: 0.01, rootMargin: "0px 0px -10% 0px" },
     );
     watcher.observe(document.querySelector("[data-terminal]"));
   }

@@ -12,7 +12,7 @@ const BASE = (import.meta.env.VITE_API_BASE ?? "").replace(/\/$/, "");
    is an upload to an extraction service. The stream reports each one as it
    lands, so `onEvent` is called with {event: "started" | "signal" | "decided" |
    "failed"} and the caller renders progress that is real rather than animated. */
-export async function examineDocument(file, brand, onEvent, signal) {
+export async function checkDocument(file, brand, onEvent, signal) {
   const body = new FormData();
   body.append("file", file);
   if (brand.trim()) body.append("brand", brand.trim());
@@ -27,7 +27,7 @@ export async function examineDocument(file, brand, onEvent, signal) {
 
   const type = response.headers.get("content-type") ?? "";
   if (!response.ok && type.includes("application/json")) {
-    throw new Error((await response.json()).error ?? "The examination could not run.");
+    throw new Error((await response.json()).error ?? "The check could not run.");
   }
   if (!type.includes("ndjson")) {
     throw new Error("This page is not connected to a verifier. It is serving static files only.");
@@ -55,7 +55,7 @@ export async function examineDocument(file, brand, onEvent, signal) {
     }
   }
 
-  if (!decision) throw new Error("The examination ended before reaching a verdict.");
+  if (!decision) throw new Error("The check ended before reaching a verdict.");
   return decision;
 }
 

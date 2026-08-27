@@ -104,7 +104,7 @@ p:last-child { margin-bottom: 0; }
   color: var(--muted);
 }
 
-section { padding: clamp(2.75rem, 6vw, 5rem) var(--gutter); }
+section { padding: clamp(2.75rem, 6vw, 5rem) var(--gutter); scroll-margin-top: 4.5rem; }
 .holds { max-width: 68rem; margin: 0 auto; }
 
 /* ── bar ──────────────────────────────────────────────────── */
