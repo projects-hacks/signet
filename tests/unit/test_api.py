@@ -181,3 +181,33 @@ def test_a_stream_refuses_an_empty_file_before_it_starts(client: TestClient) -> 
     response = client.post("/api/examine", files={"file": ("scan.png", b"")})
     assert response.status_code == 400
     assert response.headers["content-type"].startswith("application/json")
+
+
+def test_an_unknown_run_cannot_be_adjudicated(client: TestClient) -> None:
+    """The run is loaded from the store, not from the request, so a caller
+    cannot post their own signals and have them re-decided."""
+    response = client.post(
+        "/api/adjudicate",
+        json={"runId": "never-existed", "field": "iban", "reading": "GB29"},
+    )
+    assert response.status_code == 404
+
+
+def test_adjudicating_needs_a_field_and_a_reading(client: TestClient) -> None:
+    response = client.post("/api/adjudicate", json={"runId": "abc"})
+    assert response.status_code == 400
+
+
+def test_a_reading_for_a_field_the_run_never_compared_is_refused(client: TestClient) -> None:
+    """A conflict rather than a not found: the run exists and the ask does not
+    apply to it."""
+    with client.stream(
+        "POST", "/api/examine", files={"file": ("scan.png", b"not a real image")}
+    ) as response:
+        decided = [json.loads(line) for line in response.iter_lines() if line][-1]
+
+    refused = client.post(
+        "/api/adjudicate",
+        json={"runId": decided["runId"], "field": "iban", "reading": "GB29"},
+    )
+    assert refused.status_code == 409

@@ -58,3 +58,17 @@ export async function examineDocument(file, brand, onEvent, signal) {
   if (!decision) throw new Error("The examination ended before reaching a verdict.");
   return decision;
 }
+
+/* A person answering what the extractor could not read. The run is loaded
+   server side from its id, so the only thing sent is one reading of one
+   field. */
+export async function adjudicate(runId, field, reading) {
+  const response = await fetch(`${BASE}/api/adjudicate`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ runId, field, reading }),
+  });
+  const payload = await response.json();
+  if (!response.ok) throw new Error(payload.error ?? "That reading could not be applied.");
+  return payload;
+}

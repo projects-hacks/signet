@@ -516,3 +516,79 @@ a.wordmark:hover { color: var(--verify); }
   .check-outcome[data-outcome="pending"]::after,
   .check { animation: none; }
 }
+
+/* ── the question the machine would not answer ─────────────────────
+
+   The signed value is deliberately absent from this block. Somebody reading a
+   page with the expected answer in front of them is being led, and a reading
+   produced that way is evidence of nothing. They read the page; the comparison
+   is ours. */
+
+.adjudicate {
+  padding: 0 clamp(1rem, 5vw, 3rem) 2rem;
+  border-top: 1px solid var(--doubt);
+  padding-top: 1.5rem;
+  margin-top: 1rem;
+}
+
+.adjudicate-note { max-width: 60ch; color: var(--muted); margin: 0.6rem 0 1.25rem; }
+
+.doubtful {
+  border: 1px solid var(--rule);
+  border-left: 2px solid var(--doubt);
+  background: var(--sheet);
+  padding: 1rem 1.1rem;
+  margin-bottom: 0.75rem;
+  max-width: 44rem;
+}
+
+.doubtful-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.4rem;
+}
+
+.confidence { color: var(--doubt); }
+
+.machine-read { margin: 0 0 0.9rem; color: var(--muted); }
+.machine-read b { color: var(--ink); font-weight: 500; }
+
+.doubtful-answer {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.doubtful-answer label { display: flex; flex-direction: column; gap: 0.35rem; flex: 1 1 18rem; }
+
+.doubtful-answer input {
+  font-family: var(--data);
+  font-size: 0.9375rem;
+  padding: 0.5rem 0.6rem;
+  color: var(--ink);
+  background: var(--paper);
+  border: 1px solid var(--rule);
+  border-radius: 0;
+}
+
+.doubtful-answer input:focus-visible { outline: 2px solid var(--verify); outline-offset: 1px; }
+
+.confirm {
+  font-family: var(--display);
+  font-weight: 600;
+  font-size: 0.8125rem;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  padding: 0.6rem 1.1rem;
+  color: var(--paper);
+  background: var(--ink);
+  border: 1px solid var(--ink);
+  cursor: pointer;
+}
+
+.confirm:hover:not(:disabled) { background: var(--verify); border-color: var(--verify); }
+.confirm:disabled { opacity: 0.55; cursor: default; }
+.confirm:focus-visible { outline: 2px solid var(--verify); outline-offset: 2px; }

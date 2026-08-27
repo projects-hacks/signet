@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { examineDocument } from "./api.js";
+import { adjudicate, examineDocument } from "./api.js";
+import Adjudicate from "./components/Adjudicate.jsx";
 import Copy from "./components/Copy.jsx";
 import Regions from "./components/Regions.jsx";
 import Stamp from "./components/Stamp.jsx";
@@ -24,6 +25,7 @@ export default function App() {
      document submitted twice is genuinely a different question, because the
      second time it has been seen before. */
   const [history, setHistory] = useState([]);
+  const [resolving, setResolving] = useState(false);
   const picker = useRef(null);
   const running = useRef(null);
 
@@ -96,6 +98,33 @@ export default function App() {
   const signature = shown?.signals.find((signal) => signal.name === "signature");
   const issuer = signature?.evidence?.query?.replace(/^_signet\./, "");
   const compared = fidelity?.evidence?.compared ?? [];
+  const threshold = fidelity?.evidence?.threshold ?? 0.8;
+  const doubtful =
+    fidelity?.outcome === "unknown"
+      ? compared.filter(
+          (entry) => entry.printed !== null && (entry.confidence ?? 1) < threshold,
+        )
+      : [];
+
+  async function resolve(field, reading) {
+    if (!shown) return;
+    setResolving(true);
+    setError(null);
+    try {
+      const amended = await adjudicate(shown.runId, field, reading);
+      setResult(amended);
+      setHistory((past) =>
+        past.map((entry) =>
+          entry.id === amended.runId ? { ...entry, decision: amended } : entry,
+        ),
+      );
+    } catch (cause) {
+      setError(cause.message);
+    } finally {
+      setResolving(false);
+    }
+  }
+
   const answered = live?.signals.map((signal) => signal.name) ?? [];
   const waiting = live?.checks.filter((name) => !answered.includes(name)) ?? [];
 
@@ -205,6 +234,10 @@ export default function App() {
           )}
         </form>
       </section>
+
+      {doubtful.length > 0 && (
+        <Adjudicate fields={doubtful} onResolve={resolve} busy={resolving} />
+      )}
 
       {(shown || live) && (
         <Working signals={shown?.signals ?? live?.signals ?? []} pending={waiting} />

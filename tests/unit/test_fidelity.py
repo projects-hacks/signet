@@ -74,3 +74,24 @@ def test_an_unmarked_document_has_nothing_to_compare() -> None:
         claimed_brand=None,
     )
     assert FidelityCheck(FakeDocumentExtractor()).run(context).outcome is Outcome.UNKNOWN
+
+
+def test_a_mismatch_on_an_illegible_page_is_a_question_not_an_accusation() -> None:
+    """Measured against a photographed copy of a genuine invoice: the account
+    number came back at 0.40 and, on the same page, an invented bank code at
+    0.95. Trusting the second score would have flagged an authentic document."""
+    extractor = FakeDocumentExtractor.reading(iban=("", 0.40), amt=("CORALDETTE33", 0.95))
+    signal = FidelityCheck(extractor).run(context_with_mark())
+
+    assert signal.outcome is Outcome.UNKNOWN
+    assert "iban" in signal.detail
+    assert signal.evidence["apparentMismatch"]["field"] == "amt"
+
+
+def test_a_mismatch_on_a_page_read_cleanly_is_still_a_finding() -> None:
+    """The rule above must not become a way to launder a doctored page by
+    degrading it. Every field here read confidently."""
+    extractor = FakeDocumentExtractor.reading(
+        iban=("GB94BARC10201530093459", 0.96), amt=("14.75", 0.97)
+    )
+    assert FidelityCheck(extractor).run(context_with_mark()).outcome is Outcome.FAIL

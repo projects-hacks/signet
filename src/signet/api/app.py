@@ -16,7 +16,7 @@ import json
 import uuid
 from collections.abc import Iterator, Mapping
 from pathlib import Path
-from typing import Any
+from typing import Any, Final
 
 from starlette.applications import Starlette
 from starlette.middleware import Middleware
@@ -27,9 +27,11 @@ from starlette.routing import Mount, Route
 from starlette.staticfiles import StaticFiles
 
 from signet.adapters.local_store import DEFAULT_PATH
+from signet.adapters.records import record_store
 from signet.config import Settings, load_settings
-from signet.core.verdict import Decision, Signal
+from signet.core.verdict import Decision, Outcome, Signal, decide
 from signet.errors import SignetError
+from signet.verify.adjudication import NotAdjudicable, apply_reading
 from signet.verify.pipeline import VerificationRequest
 from signet.wiring import build_pipeline
 
@@ -48,6 +50,40 @@ _MEDIA_TYPES = {
 
 def _media_type(filename: str) -> str:
     return _MEDIA_TYPES.get(Path(filename).suffix.lower(), "application/octet-stream")
+
+
+RUN_NAMESPACE: Final = "run"
+
+
+def _signals_from(stored: Mapping[str, Any]) -> list[Signal]:
+    """Rebuild the signals of a stored run.
+
+    Tolerant on the way in because the store is a vendor and an unrecognised
+    outcome should read as unknown rather than raise on a page a person is
+    trying to resolve.
+    """
+    raw = stored.get("signals")
+    if not isinstance(raw, list):
+        return []
+    signals: list[Signal] = []
+    for entry in raw:
+        if not isinstance(entry, dict):
+            continue
+        try:
+            outcome = Outcome(entry.get("outcome"))
+        except ValueError:
+            outcome = Outcome.UNKNOWN
+        evidence = entry.get("evidence")
+        signals.append(
+            Signal(
+                name=str(entry.get("name", "")),
+                outcome=outcome,
+                detail=str(entry.get("detail", "")),
+                source=str(entry.get("source", "")),
+                evidence=evidence if isinstance(evidence, dict) else {},
+            )
+        )
+    return signals
 
 
 def _line(payload: Mapping[str, object]) -> bytes:
@@ -80,6 +116,7 @@ def create_app(
 ) -> Starlette:
     resolved = settings or load_settings()
     pipeline = build_pipeline(resolved, store_path)
+    store = record_store(resolved, store_path)
 
     async def health(request: Request) -> JSONResponse:
         return JSONResponse(
@@ -136,6 +173,53 @@ def create_app(
         else []
     )
 
+    async def adjudicate(request: Request) -> JSONResponse:
+        """A person answers what the extractor could not read.
+
+        The run is loaded from the store rather than from the request, so a
+        caller cannot post their own signals and have them re-decided. The only
+        thing they supply is one reading of one field.
+        """
+        try:
+            body = await request.json()
+        except ValueError:
+            return JSONResponse({"error": "Send a JSON body."}, status_code=400)
+        if not isinstance(body, dict):
+            return JSONResponse({"error": "Send a JSON object."}, status_code=400)
+
+        run_id = str(body.get("runId", "")).strip()
+        field = str(body.get("field", "")).strip()
+        reading = str(body.get("reading", "")).strip()
+        by = str(body.get("by", "")).strip() or "web"
+        if not run_id or not field or not reading:
+            return JSONResponse(
+                {"error": "A run, a field and what the page says are all required."},
+                status_code=400,
+            )
+
+        stored = store.cache_get(RUN_NAMESPACE, run_id)
+        if stored is None:
+            return JSONResponse(
+                {"error": "That examination is no longer on file."}, status_code=404
+            )
+
+        try:
+            amended = apply_reading(_signals_from(stored), field, reading, by)
+        except NotAdjudicable as refusal:
+            return JSONResponse({"error": str(refusal)}, status_code=409)
+
+        decision = decide(amended)
+        payload = _decision_json(run_id, decision)
+        store.cache_put(RUN_NAMESPACE, run_id, payload)
+        # A person overriding a machine reading is exactly the event an audit
+        # trail exists for, so it is recorded before the answer is returned.
+        store.append_audit(
+            run_id,
+            "adjudicated",
+            {"field": field, "reading": reading, "by": by, "verdict": decision.verdict.value},
+        )
+        return JSONResponse(payload)
+
     async def examine(request: Request) -> Response:
         """The same verification, reported as it happens.
 
@@ -170,7 +254,11 @@ def create_app(
             try:
                 for step in pipeline.stream(verification):
                     if isinstance(step, Decision):
-                        yield _line({"event": "decided", **_decision_json(run_id, step)})
+                        payload = _decision_json(run_id, step)
+                        # Kept so a person can answer a doubtful reading later
+                        # without the document being uploaded again.
+                        store.cache_put(RUN_NAMESPACE, run_id, payload)
+                        yield _line({"event": "decided", **payload})
                     else:
                         yield _line({"event": "signal", **_signal_json(step)})
             except SignetError as exc:
@@ -184,6 +272,7 @@ def create_app(
         Route("/api/health", health, methods=["GET"]),
         Route("/api/verify", verify, methods=["POST"]),
         Route("/api/examine", examine, methods=["POST"]),
+        Route("/api/adjudicate", adjudicate, methods=["POST"]),
     ]
     # Mounted last and only when built, so the API keeps answering during a
     # frontend rebuild rather than the whole app failing to start.

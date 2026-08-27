@@ -11,6 +11,17 @@ and neither is a discrepancy. A different account number is.
 
 Low confidence is not a failure. A field the extractor was unsure about becomes
 unknown, which routes it to a human rather than accusing anyone.
+
+Neither is a mismatch, on a page that could not be read cleanly. Measured
+against a photographed copy of a genuine invoice, extraction returned the
+account number at 0.40 confidence and, on the same page, a completely invented
+bank code at 0.95. Trusting the second score would have flagged an authentic
+document, which is the false accusation this whole product exists to avoid.
+
+So a discrepancy only counts when the page it was read from was read cleanly. If
+any field on the page was doubtful, the conditions that made it doubtful make
+every reading on that page suspect, and the apparent mismatch is reported as a
+question rather than a finding. That is what the adjudication path is for.
 """
 
 from __future__ import annotations
@@ -32,7 +43,7 @@ REVIEW_THRESHOLD = 0.80
 COMPARED_FIELDS: Final = ("id", "amt", "cur", "iban", "bic")
 
 
-def _comparable(value: str) -> str:
+def comparable(value: str) -> str:
     """Strip presentation, keep content."""
     return "".join(ch for ch in value if ch.isalnum()).casefold()
 
@@ -60,6 +71,7 @@ class FidelityCheck:
         # reader deciding whether to trust the verdict needs to see what was
         # looked at rather than only what was found wanting.
         compared: list[dict[str, object]] = []
+        mismatched: list[tuple[str, str, str]] = []
 
         for field_name in COMPARED_FIELDS:
             expected = signed.get(field_name)
@@ -86,34 +98,56 @@ class FidelityCheck:
                         "width": found.box.width,
                         "height": found.box.height,
                     },
-                    "agrees": _comparable(found.value) == _comparable(expected),
+                    "agrees": comparable(found.value) == comparable(expected),
                 }
             )
 
             if found.confidence < self._threshold:
                 uncertain.append(field_name)
                 continue
-            if _comparable(found.value) != _comparable(expected):
-                return Signal(
-                    NAME,
-                    Outcome.FAIL,
-                    f"The page shows {found.value} where the signature covers {expected}.",
-                    "extraction",
-                    {"threshold": self._threshold, "compared": compared},
-                )
+            if comparable(found.value) != comparable(expected):
+                mismatched.append((field_name, found.value, expected))
+
+        evidence: dict[str, object] = {"threshold": self._threshold, "compared": compared}
+
+        # Every field read cleanly, and one of them disagrees. That is a finding.
+        if mismatched and not uncertain:
+            field_name, printed_value, expected = mismatched[0]
+            return Signal(
+                NAME,
+                Outcome.FAIL,
+                f"The page shows {printed_value} where the signature covers {expected}.",
+                "extraction",
+                evidence,
+            )
 
         if uncertain:
+            evidence["uncertain"] = uncertain
+            if mismatched:
+                # The page is not legible enough to accuse anyone with, so the
+                # apparent discrepancy is named and put to a person.
+                field_name, printed_value, expected = mismatched[0]
+                evidence["apparentMismatch"] = {
+                    "field": field_name,
+                    "printed": printed_value,
+                    "signed": expected,
+                }
+                return Signal(
+                    NAME,
+                    Outcome.UNKNOWN,
+                    f"Needs a human: {', '.join(uncertain)} could not be read at all, and "
+                    f"{field_name} reads as {printed_value} against a signed "
+                    f"{expected}. A page this hard to read cannot settle either.",
+                    "extraction",
+                    evidence,
+                )
             return Signal(
                 NAME,
                 Outcome.UNKNOWN,
                 f"Needs a human: {', '.join(uncertain)} could not be read confidently.",
                 "extraction",
-                {"threshold": self._threshold, "compared": compared, "uncertain": uncertain},
+                evidence,
             )
         return Signal(
-            NAME,
-            Outcome.PASS,
-            "The page matches what was signed.",
-            "extraction",
-            {"threshold": self._threshold, "compared": compared},
+            NAME, Outcome.PASS, "The page matches what was signed.", "extraction", evidence
         )
