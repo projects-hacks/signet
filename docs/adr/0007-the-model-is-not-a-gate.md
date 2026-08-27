@@ -44,6 +44,46 @@ pass.
 Neither noticed the contradiction. One skipped the evidence and one gathered it
 and ignored it.
 
+## The wider sweep
+
+The first three were not chosen from the catalogue so much as recognised from
+it, so every plausible tool caller the provider offers was run afterwards
+against the same schemas. Two runs each: the ordinary request, and the lookalike
+request with a refusal fed back.
+
+| Model | Ordinary sequence | Time | Reached DNS | Retried after refusal |
+|---|---|---|---|---|
+| `openai/gpt-oss-120b` | correct | 8.6s | no | no |
+| `openai/gpt-oss-20b` | correct | 7.8s | no | no |
+| `nvidia/nemotron-3-super-120b-a12b` | correct | 30.9s | no | no |
+| `deepseek-ai/deepseek-v4-flash-0731` | correct | 231.2s | no | no |
+| `moonshotai/kimi-k3` | correct | 176s | no | no |
+| `nvidia/nemotron-3-nano-30b-a3b` | wrong order | 25.5s | no | no |
+| `nvidia/nemotron-3.5-lightning-30b-a3b` | wrong order | 77.3s | no | no |
+| `minimaxai/minimax-m3` | not measured, rate limited | | | |
+| `mistralai/mistral-nemotron` | not measured, the endpoint returns 500 | | | |
+
+The last two rows are reported as unmeasured rather than failed. MiniMax answers
+a plain prompt, accepts a tool schema, and calls the right tool on the first
+turn when asked on its own; the sweep hit HTTP 429 because it ran four models
+back to back. Mistral Nemotron returns 500 on a two word prompt, which is the
+provider rather than the model. Recording either as a capability failure would
+have been a measurement artifact reported as a finding.
+
+Two results are worth keeping.
+
+**No model reached DNS, and none retried after a refusal.** Every one of them
+accepted the refusal and reported it. That is the tools working, and it is also
+why the tools are where the safety lives: the same models, in ADR 0007's earlier
+runs without preconditions, walked straight past the contradiction.
+
+**`gpt-oss-20b` matches the 120b exactly**, in the same time, on both the
+ordinary and the adversarial run. The larger model buys nothing on this task.
+
+Neither Qwen nor GLM is on this provider's catalogue at all, so neither was
+measured. The client speaks the OpenAI shape, so reaching them is a change of
+base URL rather than of code.
+
 ## Decision
 
 The model is never a control. Every gate is a precondition in code: the
@@ -56,6 +96,10 @@ downloaded and the authorisation hash we embedded has been found in it.
 correctness is not the model's job, what remains to choose on is speed, and
 seven seconds against one hundred and seventy six decides it. A model swap is
 one line of configuration, and the safety properties do not move when it changes.
+
+`gpt-oss-20b` is the standing alternative and would cost less for the same
+result. The 120b stays for now only because the demo runs on it and a swap on
+the last day is a risk taken for no gain.
 
 ## Consequences
 
