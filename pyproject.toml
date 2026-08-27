@@ -21,6 +21,7 @@ classifiers = [
 dependencies = [
     "cryptography>=44.0",
     "httpx>=0.28",
+    "mcp>=2.1.1",
     "opencv-python-headless>=5.0.0.93",
     "pillow>=12.3.0",
     "pypdfium2>=5.13.0",

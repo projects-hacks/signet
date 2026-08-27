@@ -160,9 +160,14 @@ def enrol_issuer(args: argparse.Namespace) -> int:
     transcript = agent.run(args.request, max_turns=args.turns)
 
     print()
+    reasons = dict(transcript.refusals)
     for name in transcript.tools_called:
-        mark = "refused" if name in transcript.refusals else "ok"
-        print(f"  [{mark:>7}]  {name}")
+        refused = name in reasons
+        print(f"  [{'refused' if refused else 'ok':>7}]  {name}")
+        if refused:
+            # Without the reason a refusal reads as a failure, and the agent's
+            # own summary of what happened is not evidence of what happened.
+            print(f"             {reasons[name]}")
     print(f"\n  {transcript.reply}\n")
     # A refusal is the system working, so it is not an error. An enrolment that
     # never reached a signature is, because nothing is waiting on a person.

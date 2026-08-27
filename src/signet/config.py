@@ -82,6 +82,7 @@ class Settings:
     doctavian_templates: Mapping[str, Template]
     allowed_origins: tuple[str, ...]
     send_envelopes: bool
+    foxit_mcp_python: str | None
     doctavian_signatures: Credentials
     namecom: Credentials
     serpapi: Credentials
@@ -181,6 +182,7 @@ def load_settings() -> Settings:
         doctavian_templates=_templates(_get("DOCTAVIAN_TEMPLATES")),
         allowed_origins=_origins(_get("SIGNET_ALLOWED_ORIGINS")),
         send_envelopes=_get("SIGNET_SEND_ENVELOPES", "1") != "0",
+        foxit_mcp_python=_get("FOXIT_MCP_PYTHON") or None,
         doctavian_signatures=Credentials(
             "Doctavian Signatures",
             # Their portal scopes the key by API version. If it turns out to

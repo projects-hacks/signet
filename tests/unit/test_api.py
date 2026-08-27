@@ -26,6 +26,7 @@ def settings() -> Settings:
         doctavian_templates={},
         allowed_origins=(),
         send_envelopes=False,
+        foxit_mcp_python=None,
         doctavian_signatures=unset,
         namecom=unset,
         serpapi=unset,

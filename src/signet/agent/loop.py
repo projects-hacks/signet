@@ -12,6 +12,7 @@ loops on a refusal ends the run instead of spending the budget.
 
 from __future__ import annotations
 
+import json
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 from typing import Any, Final
@@ -48,13 +49,27 @@ class Transcript:
 
     messages: list[dict[str, Any]] = field(default_factory=list)
     tools_called: list[str] = field(default_factory=list)
-    refusals: list[str] = field(default_factory=list)
+    refusals: list[tuple[str, str]] = field(default_factory=list)
     reply: str = ""
+
+    @property
+    def refused_tools(self) -> list[str]:
+        return [name for name, _ in self.refusals]
 
     @property
     def published(self) -> bool:
         """Whether the agent published a key. Always false, and asserted in tests."""
         return "publish_key_to_dns" in self.tools_called and not self.refusals
+
+
+def _refusal(result: str) -> str | None:
+    """The reason a tool said no, so a reader is not left with only the name."""
+    try:
+        parsed = json.loads(result)
+    except ValueError:
+        return None
+    reason = parsed.get("refused") if isinstance(parsed, dict) else None
+    return str(reason) if isinstance(reason, str) else None
 
 
 class Agent:
@@ -94,8 +109,9 @@ class Agent:
                 name = function["name"]
                 result = call(self._toolbox, name, function.get("arguments", "{}"))
                 transcript.tools_called.append(name)
-                if '"refused"' in result:
-                    transcript.refusals.append(name)
+                refusal = _refusal(result)
+                if refusal is not None:
+                    transcript.refusals.append((name, refusal))
                 transcript.messages.append(
                     {"role": "tool", "tool_call_id": request_call["id"], "content": result}
                 )

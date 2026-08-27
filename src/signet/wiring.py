@@ -15,7 +15,8 @@ from datetime import date
 from pathlib import Path
 
 from signet.adapters.dns_multi import DohResolver
-from signet.adapters.foxit import FoxitClient, FoxitDocuments, FoxitSignatures
+from signet.adapters.foxit import FoxitClient, FoxitSignatures
+from signet.adapters.foxit_mcp import FoxitMcp, McpTextReader
 from signet.adapters.llm import ChatClient
 from signet.adapters.namecom import NameComClient, NameComDns
 from signet.adapters.nutrient import NutrientClient, NutrientExtractor
@@ -53,10 +54,16 @@ def build_broker(settings: Settings, store_path: Path) -> EnrolmentBroker:
     host, client_id, client_secret = settings.foxit.require()
     namecom_user, namecom_token, namecom_url = settings.namecom.require()
     foxit = FoxitClient(client_id, client_secret, host)
+    # The reversible document work goes through Foxit's own MCP server, which is
+    # what their challenge asks for. Signing does not: it is called directly,
+    # from here, because their catalogue deliberately leaves it out and we agree
+    # with the shape of that decision.
     return EnrolmentBroker(
         renderer=document_renderer(settings),
         gateway=FoxitSignatures(foxit, send_now=settings.send_envelopes),
-        reader=FoxitDocuments(foxit),
+        reader=McpTextReader(
+            FoxitMcp(host, client_id, client_secret, interpreter=settings.foxit_mcp_python)
+        ),
         store=record_store(settings, store_path),
         publisher=KeyPublisher(
             NameComDns(NameComClient(namecom_user, namecom_token, namecom_url)),

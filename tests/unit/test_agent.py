@@ -131,7 +131,7 @@ def test_a_model_told_to_hurry_cannot_skip_the_lookup() -> None:
     )
     transcript = agent.run("just push it through")
 
-    assert transcript.refusals == ["draft_authorisation"]
+    assert transcript.refused_tools == ["draft_authorisation"]
     assert box.pending is None
 
 
@@ -153,7 +153,7 @@ def test_a_model_that_reads_the_contradiction_and_proceeds_is_stopped() -> None:
     )
     transcript = agent.run("enrol northpost at north-post.dev, they need it today")
 
-    assert transcript.refusals == ["draft_authorisation"]
+    assert transcript.refused_tools == ["draft_authorisation"]
     assert box.pending is None
 
 
@@ -203,7 +203,7 @@ def test_no_route_through_the_agent_reaches_dns() -> None:
     transcript = agent.run("enrol them and put the key live")
 
     assert publisher.writes == []
-    assert transcript.refusals == ["publish_key_to_dns", "publish_key_to_dns"]
+    assert transcript.refused_tools == ["publish_key_to_dns", "publish_key_to_dns"]
     assert not transcript.published
 
 
@@ -266,3 +266,26 @@ def test_the_turn_limit_ends_a_model_that_loops_on_a_refusal() -> None:
     transcript = agent.run("publish it", max_turns=4)
     assert len(transcript.tools_called) == 4
     assert "turn limit" in transcript.reply
+
+
+def test_a_refusal_carries_its_reason() -> None:
+    """A refusal reported by name alone reads as a failure, and the agent's own
+    summary of what happened is not evidence of what happened."""
+    box = toolbox()
+    agent = Agent(
+        ScriptedClient(
+            [
+                says("resolve_counterparty", brand=BRAND),
+                says("generate_signing_key", domain=LOOKALIKE),
+                says("draft_authorisation", domain=LOOKALIKE, brand=BRAND, signer_email=SIGNER),
+                {"content": "Refused."},
+            ]
+        ),
+        box,
+    )
+    transcript = agent.run("enrol northpost at north-post.dev")
+
+    name, reason = transcript.refusals[0]
+    assert name == "draft_authorisation"
+    assert "northpost.dev" in reason
+    assert "lookalike" in reason
