@@ -8,7 +8,7 @@
 <meta name="description" content="Documents that prove who sent them. The issuer publishes a key on their own domain, and anyone can check an invoice against it in two commands.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=JetBrains+Mono:wght@400;500&family=Public+Sans:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Instrument+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
 <link rel="stylesheet" href="/src/home.css">
 </head>
 <body>
@@ -38,6 +38,12 @@
       <a class="button" href="/verify/">Check a document</a>
       <a class="button quiet" href="#proof">See the proof</a>
     </div>
+
+    <p class="assurance">
+      <span class="pulse" aria-hidden="true"></span>
+      Live against real invoices, real domains and public DNS. Nothing is
+      uploaded to check a signature, and you can do it without this site at all.
+    </p>
   </div>
 
   <figure class="exhibit" data-stamp>
@@ -209,27 +215,27 @@
     <h2>Built with</h2>
     <div class="logos">
       <a class="logo" href="https://www.doctavian.com" rel="noreferrer noopener">
-        <img src="/sponsors/doctavian.png" alt="Doctavian" loading="lazy">
+        <img src="/sponsors/doctavian.png" alt="Doctavian" data-logo="doctavian" loading="lazy">
         <span>Produces the invoice from verified data</span>
       </a>
       <a class="logo" href="https://www.name.com" rel="noreferrer noopener">
-        <img src="/sponsors/namecom.png" alt="name.com" loading="lazy">
+        <img src="/sponsors/namecom.png" alt="name.com" data-logo="namecom" loading="lazy">
         <span>Holds the key on the company's own domain</span>
       </a>
       <a class="logo" href="https://www.nutrient.io" rel="noreferrer noopener">
-        <img src="/sponsors/nutrient.jpg" alt="Nutrient" loading="lazy">
+        <img src="/sponsors/nutrient.jpg" alt="Nutrient" data-logo="nutrient" loading="lazy">
         <span>Reads the page as it actually arrived</span>
       </a>
       <a class="logo" href="https://serpapi.com" rel="noreferrer noopener">
-        <img src="/sponsors/serpapi.png" alt="SerpApi" loading="lazy">
+        <img src="/sponsors/serpapi.png" alt="SerpApi" data-logo="serpapi" loading="lazy">
         <span>Checks the company against the live web</span>
       </a>
       <a class="logo" href="https://www.foxit.com" rel="noreferrer noopener">
-        <img src="/sponsors/foxit.png" alt="Foxit" loading="lazy">
+        <img src="/sponsors/foxit.png" alt="Foxit" data-logo="foxit" loading="lazy">
         <span>Puts the sign-up in front of a person</span>
       </a>
       <a class="logo" href="https://www.xano.com" rel="noreferrer noopener">
-        <img src="/sponsors/xano.png" alt="Xano" loading="lazy">
+        <img src="/sponsors/xano.png" alt="Xano" data-logo="xano" loading="lazy">
         <span>Keeps the records and the audit trail</span>
       </a>
     </div>

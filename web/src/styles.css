@@ -5,11 +5,11 @@
    decorating it. One theme, matching the rest of the site. */
 
 :root {
-  --paper: #f6f6f3;
+  --paper: #f7f6f3;
   --sheet: #ffffff;
-  --ink: #14161a;
-  --muted: #676d76;
-  --rule: #dcdcd6;
+  --ink: #17161a;
+  --muted: #6a6a66;
+  --rule: #e4e2db;
 
   --seal: #1b3a6b;
   --verify: #16624a;
@@ -17,7 +17,7 @@
   --refuse: #a32a21;
 
   --display: Fraunces, "Iowan Old Style", Georgia, serif;
-  --body: "Public Sans", "Helvetica Neue", Arial, sans-serif;
+  --body: "Instrument Sans", "Helvetica Neue", Arial, sans-serif;
   --data: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
 
   --measure: 62ch;

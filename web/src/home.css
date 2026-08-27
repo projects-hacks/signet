@@ -8,10 +8,10 @@
    with a faint blue cast, not the warm cream every generated page reaches for.
 
    Type. Fraunces for display, because its optical sizing gives real weight at
-   headline size and it is nobody's default. Public Sans for everything a person
-   reads, which is the typeface the US government publishes its own forms in and
-   is therefore exactly the register this subject wants. JetBrains Mono for
-   anything a machine produced.
+   headline size and it is nobody's default. Instrument Sans for everything a
+   person reads: humanist proportions and a slightly open aperture, which keeps
+   a page about fraud from sounding like the fraud notice itself. JetBrains Mono
+   for anything a machine produced.
 
    Layout. The documents are the imagery. Everything else gets out of their way.
 
@@ -19,11 +19,11 @@
    match, so every colour below is stated rather than left to the viewer. */
 
 :root {
-  --paper: #f6f6f3;
+  --paper: #f7f6f3;
   --card: #ffffff;
-  --ink: #14161a;
-  --muted: #676d76;
-  --rule: #dcdcd6;
+  --ink: #17161a;
+  --muted: #6a6a66;
+  --rule: #e4e2db;
 
   --seal: #1b3a6b;
   --certified: #16624a;
@@ -31,7 +31,7 @@
   --doubt: #8a5a10;
 
   --display: Fraunces, "Iowan Old Style", Georgia, serif;
-  --text: "Public Sans", "Helvetica Neue", Arial, sans-serif;
+  --text: "Instrument Sans", "Helvetica Neue", Arial, sans-serif;
   --data: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
 
   --measure: 60ch;
@@ -67,6 +67,7 @@ h1 {
   line-height: 1.04;
   letter-spacing: -0.02em;
   max-width: 16ch;
+  margin-bottom: 1.5rem;
 }
 
 h2 {
@@ -130,8 +131,26 @@ section { padding: clamp(2.75rem, 6vw, 5rem) var(--gutter); }
 }
 
 .bar nav { display: flex; gap: 1.5rem; margin-left: auto; font-size: 0.9375rem; }
-.bar nav a { color: var(--muted); text-decoration: none; }
+.bar nav a {
+  position: relative;
+  color: var(--muted);
+  text-decoration: none;
+  padding-bottom: 2px;
+}
+
+.bar nav a::after {
+  content: "";
+  position: absolute;
+  inset: auto 0 0 0;
+  height: 1px;
+  background: var(--seal);
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 240ms cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
 .bar nav a:hover { color: var(--ink); }
+.bar nav a:hover::after { transform: scaleX(1); }
 
 @media (max-width: 44rem) {
   .bar nav { display: none; }
@@ -167,16 +186,51 @@ section { padding: clamp(2.75rem, 6vw, 5rem) var(--gutter); }
 
 .actions { display: flex; flex-wrap: wrap; gap: 0.75rem; margin-top: 2rem; }
 
+/* Closes the hero rather than leaving the buttons hanging over empty space,
+   and says the one thing a first time reader most wants to know. */
+.assurance {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.7rem;
+  margin-top: 2.5rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--rule);
+  max-width: 46ch;
+  font-size: 0.875rem;
+  line-height: 1.6;
+  color: var(--muted);
+}
+
+/* A slow breath rather than a blink. It says the system is running without
+   asking to be looked at. */
+.pulse {
+  flex: none;
+  width: 0.5rem;
+  height: 0.5rem;
+  margin-top: 0.45rem;
+  border-radius: 50%;
+  background: var(--certified);
+  box-shadow: 0 0 0 0 color-mix(in srgb, var(--certified) 55%, transparent);
+  animation: breathe 2.8s ease-out infinite;
+}
+
+@keyframes breathe {
+  0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--certified) 50%, transparent); }
+  70% { box-shadow: 0 0 0 0.5rem color-mix(in srgb, var(--certified) 0%, transparent); }
+  100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--certified) 0%, transparent); }
+}
+
 /* ── hero ─────────────────────────────────────────────────── */
 
 .hero {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(17rem, 26rem);
-  gap: clamp(2rem, 6vw, 5rem);
+  grid-template-columns: minmax(0, 1.05fr) minmax(17rem, 24rem);
+  gap: clamp(2rem, 5vw, 4rem);
   align-items: center;
-  max-width: 78rem;
+  max-width: 74rem;
   margin: 0 auto;
-  padding-top: clamp(3rem, 7vw, 5.5rem);
+  padding-top: clamp(2.5rem, 5vw, 4rem);
+  padding-bottom: clamp(2.5rem, 5vw, 4rem);
 }
 
 @media (max-width: 62rem) {
@@ -233,6 +287,7 @@ section { padding: clamp(2.75rem, 6vw, 5rem) var(--gutter); }
   background: var(--card);
   border-top: 1px solid var(--rule);
   border-bottom: 1px solid var(--rule);
+  box-shadow: inset 0 1px 0 #fff;
 }
 
 .stakes h2 { max-width: 22ch; }
@@ -427,7 +482,13 @@ section { padding: clamp(2.75rem, 6vw, 5rem) var(--gutter); }
 }
 
 .cases figure { margin: 0; }
-.page { position: relative; }
+
+.page {
+  position: relative;
+  transition: transform 260ms cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+.cases figure:hover .page { transform: translateY(-4px); }
 
 .stamp.small {
   top: 21%;
@@ -486,39 +547,53 @@ section { padding: clamp(2.75rem, 6vw, 5rem) var(--gutter); }
   background: var(--rule);
   border: 1px solid var(--rule);
   margin-top: 2rem;
+  overflow: hidden;
 }
 
 @media (max-width: 58rem) { .logos { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 34rem) { .logos { grid-template-columns: 1fr; } }
 
+/* A fixed row for the mark, so the sentences start on the same line in every
+   cell however tall the logo above them happens to be. */
 .logo {
-  display: flex;
-  flex-direction: column;
-  gap: 0.9rem;
-  padding: 1.5rem 1.4rem;
-  background: var(--card);
+  display: grid;
+  grid-template-rows: 2.75rem auto;
+  align-content: start;
+  gap: 1.1rem;
+  padding: 1.75rem 1.6rem;
+  background: #fff;
   text-decoration: none;
-  transition: background 160ms ease;
+  transition: transform 220ms cubic-bezier(0.22, 0.61, 0.36, 1);
 }
 
-.logo:hover { background: color-mix(in srgb, var(--card) 88%, var(--seal)); }
+.logo:hover { transform: translateY(-2px); }
+.logo:hover img { filter: none; opacity: 1; }
 
 /* Every logo arrives on its own white background, so each sits on a white
    plate. Consistent, and it means none of them needs editing. */
-/* Each logo arrives on its own white background with its own margins, and the
-   amount of built in whitespace varies wildly between them. A fixed plate makes
-   them sit on one optical line instead of one measured one. */
+/* Each logo arrives with its own white background baked in, so the cell is
+   white too and the edge disappears. Left aligned on a fixed height, which puts
+   them on one optical line without boxing each one. */
 .logo img {
-  width: 9.5rem;
-  height: 2.75rem;
+  width: auto;
+  max-width: 11rem;
   object-fit: contain;
-  object-position: center;
-  background: #fff;
-  padding: 0.35rem 0.6rem;
-  border: 1px solid var(--rule);
-  border-radius: 2px;
-  align-self: flex-start;
+  object-position: left center;
+  align-self: center;
+  justify-self: start;
+  opacity: 0.9;
+  transition: opacity 220ms ease;
 }
+
+/* Each logo carries a different amount of its own whitespace, so a single
+   height puts them on one measured line and three different optical ones.
+   These are set by eye, which is the only way this is ever right. */
+.logo img[data-logo="doctavian"] { height: 2.6rem; }
+.logo img[data-logo="nutrient"] { height: 2.5rem; }
+.logo img[data-logo="namecom"] { height: 1.9rem; }
+.logo img[data-logo="serpapi"] { height: 1.75rem; }
+.logo img[data-logo="foxit"] { height: 1.65rem; }
+.logo img[data-logo="xano"] { height: 1.55rem; }
 
 .logo span { color: var(--muted); font-size: 0.9375rem; line-height: 1.5; }
 
