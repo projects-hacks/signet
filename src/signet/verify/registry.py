@@ -10,9 +10,11 @@ from datetime import date
 
 from signet.ports.dns import DnsResolver
 from signet.ports.documents import DocumentExtractor
+from signet.ports.intelligence import EntityResolver
 from signet.ports.registry import RegistrationData
 from signet.ports.store import RecordStore
 from signet.verify.checks import Check
+from signet.verify.checks.counterparty import CounterpartyCheck
 from signet.verify.checks.domain_age import DomainAgeCheck
 from signet.verify.checks.duplicate import DuplicateCheck
 from signet.verify.checks.fidelity import FidelityCheck
@@ -27,6 +29,7 @@ def default_checks(
     registrations: RegistrationData,
     today: date,
     extractor: DocumentExtractor | None = None,
+    entities: EntityResolver | None = None,
 ) -> tuple[Check, ...]:
     checks: list[Check] = [
         SignatureCheck(resolver),
@@ -37,4 +40,6 @@ def default_checks(
     ]
     if extractor is not None:
         checks.append(FidelityCheck(extractor))
+    if entities is not None:
+        checks.append(CounterpartyCheck(entities, store))
     return tuple(checks)

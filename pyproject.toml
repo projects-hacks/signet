@@ -65,8 +65,10 @@ select = ["E", "F", "W", "I", "UP", "B", "SIM", "RUF", "TID"]
 
 [tool.ruff.lint.per-file-ignores]
 # Adapters are the vendor layer, and the composition root and its tests are the
-# places allowed to see it. The ban exists to protect core, ports, verify and issue.
+# places allowed to see it. wiring.py is that root; cli and api reach it through
+# there. The ban exists to protect core, ports, verify and issue.
 "src/signet/adapters/**" = ["TID251"]
+"src/signet/wiring.py" = ["TID251"]
 "src/signet/cli.py" = ["TID251"]
 "src/signet/api/**" = ["TID251"]
 "tests/**" = ["TID251"]

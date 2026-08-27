@@ -13,7 +13,6 @@ and the resolver's connection reuse is most of why a verification is fast.
 from __future__ import annotations
 
 import uuid
-from datetime import date
 from pathlib import Path
 from typing import Any
 
@@ -23,17 +22,12 @@ from starlette.responses import JSONResponse
 from starlette.routing import Mount, Route
 from starlette.staticfiles import StaticFiles
 
-from signet.adapters.dns_multi import DohResolver
 from signet.adapters.local_store import DEFAULT_PATH
-from signet.adapters.nutrient import NutrientClient, NutrientExtractor
-from signet.adapters.qr import ImageMarkReader
-from signet.adapters.rdap import RdapRegistrationData
-from signet.adapters.records import record_store
 from signet.config import Settings, load_settings
 from signet.core.verdict import Decision
 from signet.errors import SignetError
-from signet.verify.pipeline import VerificationPipeline, VerificationRequest
-from signet.verify.registry import default_checks
+from signet.verify.pipeline import VerificationRequest
+from signet.wiring import build_pipeline
 
 # Anything larger is a scan nobody photographed, and reading it into memory to
 # find a QR code is how a demo machine falls over in front of an audience.
@@ -68,22 +62,6 @@ def _decision_json(run_id: str, decision: Decision) -> dict[str, Any]:
             for signal in decision.signals
         ],
     }
-
-
-def build_pipeline(settings: Settings, store_path: Path) -> VerificationPipeline:
-    store = record_store(settings, store_path)
-    extractor = (
-        NutrientExtractor(NutrientClient(settings.nutrient.values[0]))
-        if settings.nutrient.configured and not settings.fixtures
-        else None
-    )
-    return VerificationPipeline(
-        checks=default_checks(
-            DohResolver(), store, RdapRegistrationData(), date.today(), extractor
-        ),
-        store=store,
-        mark_reader=ImageMarkReader(),
-    )
 
 
 def create_app(

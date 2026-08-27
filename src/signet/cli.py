@@ -12,16 +12,14 @@ import json
 import sys
 import time
 import uuid
-from datetime import UTC, date, datetime
+from datetime import UTC, datetime
 from pathlib import Path
 
 from signet.adapters.dns_multi import DohResolver
 from signet.adapters.local_store import DEFAULT_PATH
 from signet.adapters.namecom import NameComClient, NameComDns
-from signet.adapters.nutrient import NutrientClient, NutrientExtractor
 from signet.adapters.page import page_with_mark
-from signet.adapters.qr import ImageMarkReader, render_mark
-from signet.adapters.rdap import RdapRegistrationData
+from signet.adapters.qr import render_mark
 from signet.adapters.records import record_store
 from signet.adapters.renderers import document_renderer
 from signet.config import load_settings
@@ -32,8 +30,8 @@ from signet.core.signing import Ed25519Signer, encode_public_key, generate_key
 from signet.core.verdict import Outcome, Verdict
 from signet.errors import SignetError
 from signet.issue.publish import KeyPublisher
-from signet.verify.pipeline import VerificationPipeline, VerificationRequest
-from signet.verify.registry import default_checks
+from signet.verify.pipeline import VerificationRequest
+from signet.wiring import build_pipeline
 
 KEY_DIR = Path(".signet/keys")
 
@@ -161,22 +159,7 @@ def verify(args: argparse.Namespace) -> int:
         print(f"no such file: {path}", file=sys.stderr)
         return 1
 
-    settings = load_settings()
-    store = record_store(settings, Path(args.store))
-    # Without an extractor the pipeline simply runs one check fewer, so an
-    # unconfigured Nutrient degrades the verdict's depth rather than breaking it.
-    extractor = (
-        NutrientExtractor(NutrientClient(settings.nutrient.values[0]))
-        if settings.nutrient.configured and not settings.fixtures
-        else None
-    )
-    pipeline = VerificationPipeline(
-        checks=default_checks(
-            DohResolver(), store, RdapRegistrationData(), date.today(), extractor
-        ),
-        store=store,
-        mark_reader=ImageMarkReader(),
-    )
+    pipeline = build_pipeline(load_settings(), Path(args.store))
     decision = pipeline.run(
         VerificationRequest(
             run_id=uuid.uuid4().hex[:12],
