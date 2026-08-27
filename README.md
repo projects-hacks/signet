@@ -146,6 +146,10 @@ tests/                 unit, golden verdict suite, offline replay, fakes
 fails the build if the domain ever reaches for a vendor
 ([ADR 0006](docs/adr/0006-ports-and-adapters.md)).
 
+[docs/architecture.md](docs/architecture.md) has the diagrams: how the layers
+depend on each other, what happens on the verification path, how the verdict is
+reached, and where the agent stops.
+
 ## Commands
 
 | Command | What it does |
