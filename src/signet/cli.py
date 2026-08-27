@@ -30,9 +30,10 @@ from signet.core.payload import canonicalize
 from signet.core.signing import Ed25519Signer, encode_public_key, generate_key
 from signet.core.verdict import Outcome, Verdict
 from signet.errors import SignetError
+from signet.issue.broker import Pending, ReleaseRefused, authorisation_hash
 from signet.issue.publish import KeyPublisher
 from signet.verify.pipeline import VerificationRequest
-from signet.wiring import build_agent, build_pipeline
+from signet.wiring import build_agent, build_broker, build_pipeline
 
 KEY_DIR = Path(".signet/keys")
 
@@ -168,6 +169,38 @@ def enrol_issuer(args: argparse.Namespace) -> int:
     return 0 if transcript.tools_called else 1
 
 
+def release(args: argparse.Namespace) -> int:
+    """Publish the key, if and only if the signed document says so.
+
+    Separate from the agent on purpose. This is the command that touches DNS,
+    and it reads its authority from the executed document rather than from
+    whoever ran it.
+    """
+    settings = load_settings()
+    key_path = _key_path(args.domain)
+    if not key_path.is_file():
+        print(f"no key for {args.domain}", file=sys.stderr)
+        return 1
+
+    public = Ed25519Signer(key_path.read_bytes()).public_key
+    pending = Pending(
+        domain=args.domain,
+        brand=args.brand,
+        public_key=public,
+        envelope_id=args.envelope,
+        authorisation_hash=authorisation_hash(args.domain, args.brand, public),
+    )
+    try:
+        released = build_broker(settings, Path(args.store)).release(pending)
+    except ReleaseRefused as refusal:
+        print(f"\n  refused   {refusal}\n")
+        return 2
+
+    print(f"\n  published {released.domain}")
+    print(f"  record    {released.record}\n")
+    return 0
+
+
 def verify(args: argparse.Namespace) -> int:
     """Run one document through the pipeline and print every signal."""
     path = Path(args.file)
@@ -227,6 +260,12 @@ def build_parser() -> argparse.ArgumentParser:
     enrol.add_argument("request", help="what you want, in your own words")
     enrol.add_argument("--turns", type=int, default=MAX_TURNS)
     enrol.set_defaults(handler=enrol_issuer)
+
+    let_go = sub.add_parser("release", help="publish a key against a signed authorisation")
+    let_go.add_argument("--domain", required=True)
+    let_go.add_argument("--brand", required=True)
+    let_go.add_argument("--envelope", required=True)
+    let_go.set_defaults(handler=release)
 
     check = sub.add_parser("verify", help="verify a document")
     check.add_argument("file")

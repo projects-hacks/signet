@@ -46,6 +46,18 @@ class Ed25519Signer:
     def sign(self, payload: bytes) -> bytes:
         return self._key.sign(payload)
 
+    @property
+    def public_key(self) -> bytes:
+        """The verifying half, derived rather than stored alongside.
+
+        A public key kept next to its private key is a public key that can go
+        out of step with it. Deriving it means the record published to DNS and
+        the key that signs can never disagree.
+        """
+        return self._key.public_key().public_bytes(
+            serialization.Encoding.Raw, serialization.PublicFormat.Raw
+        )
+
 
 class Ed25519Verifier:
     def verify(self, payload: bytes, signature: bytes, public_key: bytes) -> bool:

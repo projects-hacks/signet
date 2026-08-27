@@ -48,6 +48,23 @@ def resolver_for(settings: Settings, store: RecordStore) -> EntityResolver | Non
     return SerpApiResolver(settings.serpapi.values[0], store)
 
 
+def build_broker(settings: Settings, store_path: Path) -> EnrolmentBroker:
+    """The only thing in the system that publishes a key."""
+    host, client_id, client_secret = settings.foxit.require()
+    namecom_user, namecom_token, namecom_url = settings.namecom.require()
+    foxit = FoxitClient(client_id, client_secret, host)
+    return EnrolmentBroker(
+        renderer=document_renderer(settings),
+        gateway=FoxitSignatures(foxit, send_now=settings.send_envelopes),
+        reader=FoxitDocuments(foxit),
+        store=record_store(settings, store_path),
+        publisher=KeyPublisher(
+            NameComDns(NameComClient(namecom_user, namecom_token, namecom_url)),
+            DohResolver(),
+        ),
+    )
+
+
 def build_agent(settings: Settings, store_path: Path) -> Agent:
     """The enrolment agent, and everything it is allowed to touch.
 
@@ -55,21 +72,9 @@ def build_agent(settings: Settings, store_path: Path) -> Agent:
     the deployment. The broker takes the publisher; the agent never sees it.
     """
     base_url, api_key, model = settings.llm.require()
-    host, client_id, client_secret = settings.foxit.require()
-    namecom_user, namecom_token, namecom_url = settings.namecom.require()
 
     store = record_store(settings, store_path)
-    foxit = FoxitClient(client_id, client_secret, host)
-    broker = EnrolmentBroker(
-        renderer=document_renderer(settings),
-        gateway=FoxitSignatures(foxit, send_now=settings.send_envelopes),
-        reader=FoxitDocuments(foxit),
-        store=store,
-        publisher=KeyPublisher(
-            NameComDns(NameComClient(namecom_user, namecom_token, namecom_url)),
-            DohResolver(),
-        ),
-    )
+    broker = build_broker(settings, store_path)
     resolver = resolver_for(settings, store)
     if resolver is None:
         raise ConfigError(

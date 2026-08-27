@@ -33,3 +33,10 @@ def test_txt_record_fits_a_single_dns_string() -> None:
 def test_unrelated_txt_records_are_ignored() -> None:
     assert decode_public_key("v=spf1 include:example.com ~all") is None
     assert decode_public_key("v=DKIM1; k=rsa; p=MIGf") is None
+
+
+def test_the_public_key_is_derived_from_the_private_one() -> None:
+    """A stored pair can go out of step. A derived one cannot, which is what
+    keeps the DNS record and the signing key from ever disagreeing."""
+    private, public = generate_key()
+    assert Ed25519Signer(private).public_key == public
