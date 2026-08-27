@@ -18,6 +18,11 @@ class FakeRecordStore:
     def enrolled_issuers(self) -> tuple[Issuer, ...]:
         return tuple(issuer for issuer in self.issuers.values() if issuer.enrolled)
 
+    def enrol(self, domain: str, brand: str, public_key: bytes) -> None:
+        self.issuers[domain] = Issuer(
+            domain=domain, brand=brand, public_key=public_key, enrolled=True, frozen=False
+        )
+
     def record_submission(self, fingerprint: str, submitted_by: str) -> bool:
         if fingerprint in self.submissions:
             return False
