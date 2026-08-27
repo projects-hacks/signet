@@ -132,8 +132,7 @@ def main() -> int:
     services = (
         settings.xano,
         settings.nutrient,
-        settings.foxit_services,
-        settings.foxit_esign,
+        settings.foxit,
         settings.doctavian,
         settings.doctavian_signatures,
         settings.namecom,

@@ -77,8 +77,7 @@ class Settings:
     demo: Demo
     xano: Credentials
     nutrient: Credentials
-    foxit_services: Credentials
-    foxit_esign: Credentials
+    foxit: Credentials
     doctavian: Credentials
     doctavian_templates: Mapping[str, Path]
     doctavian_signatures: Credentials
@@ -93,8 +92,7 @@ class Settings:
             for item in (
                 self.xano,
                 self.nutrient,
-                self.foxit_services,
-                self.foxit_esign,
+                self.foxit,
                 self.doctavian,
                 self.doctavian_signatures,
                 self.namecom,
@@ -141,16 +139,13 @@ def load_settings() -> Settings:
         ),
         xano=Credentials("Xano", (_get("XANO_BASE_URL"), _get("XANO_API_KEY"))),
         nutrient=Credentials("Nutrient", (_get("NUTRIENT_API_KEY"),)),
-        foxit_services=Credentials(
-            "Foxit PDF Services",
+        foxit=Credentials(
+            "Foxit",
             (
-                _get("FOXIT_CLOUD_API_HOST"),
-                _get("FOXIT_CLOUD_API_CLIENT_ID"),
-                _get("FOXIT_CLOUD_API_CLIENT_SECRET"),
+                _get("FOXIT_API_HOST"),
+                _get("FOXIT_CLIENT_ID"),
+                _get("FOXIT_CLIENT_SECRET"),
             ),
-        ),
-        foxit_esign=Credentials(
-            "Foxit eSign", (_get("FOXIT_ESIGN_BASE_URL"), _get("FOXIT_ESIGN_API_KEY"))
         ),
         doctavian=Credentials(
             "Doctavian",
