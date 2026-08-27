@@ -47,9 +47,11 @@ def test_every_path_carries_its_version_segment() -> None:
 
     def handler(request: httpx.Request) -> httpx.Response:
         seen.append(request.url.path)
-        return httpx.Response(200, json={"folderId": 5510})
+        return httpx.Response(200, json={"folder": {"folderId": 5510}})
 
-    FoxitSignatures(client(handler)).send_for_signature(b"pdf", "ops@example.com", "Authorisation")
+    FoxitSignatures(client(handler)).send_for_signature(
+        b"pdf", "ops@example.com", "Dana Okafor", "Authorisation"
+    )
     assert seen == ["/esign/api/v1/folders/createfolder"]
 
 
@@ -60,21 +62,34 @@ def test_a_document_is_sent_as_base64_not_a_url() -> None:
 
     def handler(request: httpx.Request) -> httpx.Response:
         seen.update(json.loads(request.read()))
-        return httpx.Response(200, json={"folderId": 5510})
+        return httpx.Response(200, json={"folder": {"folderId": 5510}})
 
-    FoxitSignatures(client(handler)).send_for_signature(b"pdf bytes", "ops@x.com", "Authorisation")
+    FoxitSignatures(client(handler)).send_for_signature(
+        b"pdf bytes", "ops@x.com", "Dana Okafor", "Authorisation"
+    )
     assert seen["inputType"] == "base64"
     assert base64.b64decode(seen["base64FileString"][0]) == b"pdf bytes"
     assert seen["parties"][0]["emailId"] == "ops@x.com"
+    assert seen["parties"][0]["firstName"] == "Dana"
+    assert seen["parties"][0]["lastName"] == "Okafor"
 
 
 def test_a_numeric_envelope_id_is_returned_as_text() -> None:
     """Their folderId is a number and every caller treats it as an identifier."""
 
     def handler(request: httpx.Request) -> httpx.Response:
-        return httpx.Response(200, json={"folderId": 5510})
+        return httpx.Response(200, json={"folder": {"folderId": 5510}})
 
-    assert FoxitSignatures(client(handler)).send_for_signature(b"p", "a@b.c", "s") == "5510"
+    assert FoxitSignatures(client(handler)).send_for_signature(b"p", "a@b.c", "Dana", "s") == "5510"
+
+
+def test_the_envelope_id_is_found_whether_or_not_it_is_nested() -> None:
+    """Their create response nests it and their docs show it flat."""
+
+    def flat(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json={"folderId": 77})
+
+    assert FoxitSignatures(client(flat)).send_for_signature(b"p", "a@b.c", "Dana", "s") == "77"
 
 
 def test_an_unfinished_envelope_carries_no_document() -> None:
@@ -175,3 +190,17 @@ def test_a_missing_document_id_is_an_adapter_error_not_a_key_error() -> None:
 
     with pytest.raises(AdapterError, match="no document id"):
         FoxitDocuments(client(handler)).upload("a.pdf", b"x")
+
+
+def test_a_one_word_name_still_produces_a_valid_party() -> None:
+    """Their party object requires both halves, and a single word is a
+    legitimate way for somebody to be addressed."""
+    seen: dict[str, Any] = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.update(json.loads(request.read()))
+        return httpx.Response(200, json={"folder": {"folderId": 1}})
+
+    FoxitSignatures(client(handler)).send_for_signature(b"p", "a@b.c", "Prince", "s")
+    assert seen["parties"][0]["firstName"] == "Prince"
+    assert seen["parties"][0]["lastName"] == "Signatory"

@@ -25,6 +25,7 @@ def settings() -> Settings:
         doctavian=unset,
         doctavian_templates={},
         allowed_origins=(),
+        send_envelopes=False,
         doctavian_signatures=unset,
         namecom=unset,
         serpapi=unset,

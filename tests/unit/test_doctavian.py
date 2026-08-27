@@ -15,6 +15,7 @@ import httpx
 import pytest
 
 from signet.adapters.doctavian import DoctavianRenderer
+from signet.config import Template
 from signet.errors import AdapterError
 
 # A render uploads its template, so the files have to exist on disk.
@@ -22,7 +23,7 @@ _TEMPLATE_DIR = Path(tempfile.mkdtemp())
 TEMPLATES = {}
 for _name in ("receipt.docx", "invoice.docx"):
     (_TEMPLATE_DIR / _name).write_bytes(b"docx bytes")
-    TEMPLATES[_name.removesuffix(".docx")] = _TEMPLATE_DIR / _name
+    TEMPLATES[_name.removesuffix(".docx")] = Template(_TEMPLATE_DIR / _name, "Invoice")
 
 
 def uploaded_record(seen: dict[str, Any]) -> dict[str, Any]:
@@ -37,7 +38,7 @@ def envelope(data: dict[str, Any], status: int = 200) -> httpx.Response:
     return httpx.Response(status, json={"result": {"data": data, "statusCode": status}})
 
 
-def renderer(handler: Any, templates: dict[str, Path] | None = None) -> DoctavianRenderer:
+def renderer(handler: Any, templates: dict[str, Template] | None = None) -> DoctavianRenderer:
     return DoctavianRenderer(
         api_key="documents-key",
         token_provider=lambda: "bearer-token",

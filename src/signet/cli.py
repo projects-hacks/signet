@@ -22,6 +22,7 @@ from signet.adapters.page import page_with_mark
 from signet.adapters.qr import render_mark
 from signet.adapters.records import record_store
 from signet.adapters.renderers import document_renderer
+from signet.agent.loop import MAX_TURNS
 from signet.config import load_settings
 from signet.constants import DNS_LABEL
 from signet.core.mark import encode_mark, format_locator
@@ -31,7 +32,7 @@ from signet.core.verdict import Outcome, Verdict
 from signet.errors import SignetError
 from signet.issue.publish import KeyPublisher
 from signet.verify.pipeline import VerificationRequest
-from signet.wiring import build_pipeline
+from signet.wiring import build_agent, build_pipeline
 
 KEY_DIR = Path(".signet/keys")
 
@@ -152,6 +153,21 @@ def issue(args: argparse.Namespace) -> int:
     return 0
 
 
+def enrol_issuer(args: argparse.Namespace) -> int:
+    """Run the enrolment agent, and show every step it took."""
+    agent = build_agent(load_settings(), Path(args.store))
+    transcript = agent.run(args.request, max_turns=args.turns)
+
+    print()
+    for name in transcript.tools_called:
+        mark = "refused" if name in transcript.refusals else "ok"
+        print(f"  [{mark:>7}]  {name}")
+    print(f"\n  {transcript.reply}\n")
+    # A refusal is the system working, so it is not an error. An enrolment that
+    # never reached a signature is, because nothing is waiting on a person.
+    return 0 if transcript.tools_called else 1
+
+
 def verify(args: argparse.Namespace) -> int:
     """Run one document through the pipeline and print every signal."""
     path = Path(args.file)
@@ -206,6 +222,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="JSON of the document a reader receives, rendered through Doctavian",
     )
     make.set_defaults(handler=issue)
+
+    enrol = sub.add_parser("enrol", help="enrol an issuer from a plain sentence")
+    enrol.add_argument("request", help="what you want, in your own words")
+    enrol.add_argument("--turns", type=int, default=MAX_TURNS)
+    enrol.set_defaults(handler=enrol_issuer)
 
     check = sub.add_parser("verify", help="verify a document")
     check.add_argument("file")

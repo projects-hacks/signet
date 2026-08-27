@@ -79,8 +79,9 @@ class Settings:
     nutrient: Credentials
     foxit: Credentials
     doctavian: Credentials
-    doctavian_templates: Mapping[str, Path]
+    doctavian_templates: Mapping[str, Template]
     allowed_origins: tuple[str, ...]
+    send_envelopes: bool
     doctavian_signatures: Credentials
     namecom: Credentials
     serpapi: Credentials
@@ -119,19 +120,33 @@ def _origins(raw: str) -> tuple[str, ...]:
     return tuple(part.strip() for part in raw.split(",") if part.strip())
 
 
-def _templates(raw: str) -> Mapping[str, Path]:
-    """Parse class=path pairs, so adding a document class is configuration.
+@dataclass(frozen=True, slots=True)
+class Template:
+    """A template file and the collection its fields hang off.
 
-    Which template renders which class is deployment specific, and the file is
-    the thing that has to exist rather than a reference to it.
+    Doctavian addresses fields through a root collection, so an invoice template
+    reads {!Invoice.Number} and an authorisation reads {!Enrolment.Domain}. The
+    root is a property of the template rather than of the deployment, so it
+    travels with the file instead of being one global setting that silently
+    renders the wrong document class as blank.
     """
-    parsed: dict[str, Path] = {}
+
+    path: Path
+    root: str
+
+
+def _templates(raw: str) -> Mapping[str, Template]:
+    """Parse class=path#Root triples, so adding a document class is configuration."""
+    parsed: dict[str, Template] = {}
     for entry in raw.split(","):
         entry = entry.strip()
         if not entry or "=" not in entry:
             continue
-        document_class, path = entry.split("=", 1)
-        parsed[document_class.strip()] = Path(path.strip())
+        document_class, rest = entry.split("=", 1)
+        path, _, root = rest.partition("#")
+        parsed[document_class.strip()] = Template(
+            path=Path(path.strip()), root=root.strip() or "Invoice"
+        )
     return parsed
 
 
@@ -165,6 +180,7 @@ def load_settings() -> Settings:
         ),
         doctavian_templates=_templates(_get("DOCTAVIAN_TEMPLATES")),
         allowed_origins=_origins(_get("SIGNET_ALLOWED_ORIGINS")),
+        send_envelopes=_get("SIGNET_SEND_ENVELOPES", "1") != "0",
         doctavian_signatures=Credentials(
             "Doctavian Signatures",
             # Their portal scopes the key by API version. If it turns out to

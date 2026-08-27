@@ -21,6 +21,7 @@ nothing in it loops.
 from __future__ import annotations
 
 import base64
+import time
 from dataclasses import dataclass
 from typing import Any, Final
 
@@ -41,6 +42,7 @@ _SERVICES: Final = "/pdf-services/api"
 # their own MCP client rather than from the reference, which names some of them
 # differently.
 _COMPLETED: Final = frozenset({"COMPLETED", "EXECUTED", "SIGNED"})
+_POLL_ATTEMPTS: Final = 25
 
 
 @dataclass(frozen=True, slots=True)
@@ -151,6 +153,23 @@ class FoxitDocuments:
             {"documentId": document_id, "compressionLevel": "MEDIUM"},
         )
 
+    def text_of_document(self, document: bytes, poll_seconds: float = 1.5) -> str:
+        """Read a document back as text. Implements the broker's TextReader.
+
+        Four calls to answer one question, because their conversion is
+        asynchronous: upload, start, poll, download. The broker asks it twice per
+        enrolment and nowhere else, so the cost is per person rather than per
+        document.
+        """
+        document_id = self.upload("document.pdf", document)
+        task_id = self.text_of(document_id)
+        for _ in range(_POLL_ATTEMPTS):
+            result = self.task(task_id)
+            if result.document_id:
+                return self.download(result.document_id).decode("utf-8", errors="replace")
+            time.sleep(poll_seconds)
+        raise AdapterError("Foxit did not finish converting the document to text in time.")
+
     def text_of(self, document_id: str) -> str:
         """Read a PDF back as text.
 
@@ -162,6 +181,19 @@ class FoxitDocuments:
         )
 
 
+def _named(signer_name: str) -> dict[str, str]:
+    """Their party object requires both halves of a name and rejects neither.
+
+    A single word is a legitimate way for someone to be addressed, so the
+    surname falls back to a placeholder rather than the request failing over a
+    naming convention.
+    """
+    parts = signer_name.strip().split()
+    if not parts:
+        return {"firstName": "Authorised", "lastName": "Signatory"}
+    return {"firstName": parts[0], "lastName": " ".join(parts[1:]) or "Signatory"}
+
+
 class FoxitSignatures:
     """The irreversible half, and the reason the two are separate classes.
 
@@ -171,10 +203,17 @@ class FoxitSignatures:
     it.
     """
 
-    def __init__(self, client: FoxitClient) -> None:
+    def __init__(self, client: FoxitClient, send_now: bool = True) -> None:
         self._client = client
+        # An envelope costs five credits whether or not it is sent, so drafting
+        # buys nothing except not mailing a person. That is worth having while
+        # rehearsing, and it is off by default because a gate nobody is asked to
+        # pass is not a gate.
+        self._send_now = send_now
 
-    def send_for_signature(self, document: bytes, signer_email: str, subject: str) -> str:
+    def send_for_signature(
+        self, document: bytes, signer_email: str, signer_name: str, subject: str
+    ) -> str:
         body = self._client.json(
             "POST",
             f"{_ESIGN}/folders/createfolder",
@@ -185,6 +224,7 @@ class FoxitSignatures:
                 "fileNames": [f"{subject}.pdf"],
                 "parties": [
                     {
+                        **_named(signer_name),
                         "emailId": signer_email,
                         "permission": "FILL_FIELDS_AND_SIGN",
                         "sequence": 1,
@@ -196,10 +236,13 @@ class FoxitSignatures:
                 "processTextTags": True,
                 "processAcroFields": False,
                 "createEmbeddedSigningSession": False,
-                "sendNow": True,
+                "sendNow": self._send_now,
             },
         )
-        envelope_id = body.get("folderId")
+        # Their create response nests the envelope, while the fetch response is
+        # accepted in either shape. Confirmed against a live call.
+        nested = body.get("folder")
+        envelope_id = nested.get("folderId") if isinstance(nested, dict) else body.get("folderId")
         if envelope_id is None:
             raise AdapterError(f"Foxit created no envelope: {str(body)[:200]}")
         return str(envelope_id)

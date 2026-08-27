@@ -140,11 +140,19 @@ def test_the_knowledge_graph_is_preferred_over_the_first_blue_link() -> None:
     assert resolver(handler).resolve_brand("Northpost").canonical_domain == "northpost.dev"
 
 
-def test_an_organic_result_answers_when_there_is_no_knowledge_graph() -> None:
-    def handler(request: httpx.Request) -> httpx.Response:
-        return httpx.Response(200, json={"organic_results": [{"link": "https://northpost.dev/x"}]})
+def test_a_search_result_is_a_source_and_never_an_answer() -> None:
+    """A first blue link is not an assertion that a brand owns a domain.
+    Searching a small freight company returned a New York town's .gov site, and
+    as a canonical domain that would have failed genuine documents."""
 
-    assert resolver(handler).resolve_brand("Northpost").canonical_domain == "northpost.dev"
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200, json={"organic_results": [{"link": "https://northportny.gov/about"}]}
+        )
+
+    found = resolver(handler).resolve_brand("Northpost")
+    assert found.canonical_domain is None
+    assert found.sources == ("https://northportny.gov/about",)
 
 
 def test_a_repeated_question_costs_nothing() -> None:

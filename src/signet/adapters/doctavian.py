@@ -40,12 +40,12 @@ from __future__ import annotations
 import json
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
-from pathlib import Path
 from typing import Any, Final
 
 import httpx
 
 from signet.adapters import http
+from signet.config import Template
 from signet.errors import AdapterError
 
 # Their published spec names api.doctavian.com as the only server, and a key
@@ -109,12 +109,11 @@ class DoctavianRenderer:
         self,
         api_key: str,
         token_provider: TokenProvider,
-        templates: Mapping[str, Path],
+        templates: Mapping[str, Template],
         base_url: str = BASE_URL,
         client: httpx.Client | None = None,
         locale: str = "en",
         timezone: str = "UTC",
-        root: str = "Invoice",
     ) -> None:
         self._api_key = api_key
         self._token = token_provider
@@ -122,7 +121,6 @@ class DoctavianRenderer:
         self._base_url = base_url.rstrip("/")
         self._locale = locale
         self._timezone = timezone
-        self._root = root
         self._client = client or http.client(_TIMEOUT_SECONDS)
 
     def render(
@@ -133,18 +131,20 @@ class DoctavianRenderer:
             raise AdapterError(
                 f"no Doctavian template configured for document class {document_class!r}"
             )
-        if not template.is_file():
-            raise AdapterError(f"Doctavian template file is missing: {template}")
-        template_urn = self.upload_template(template.name, template.read_bytes())
+        if not template.path.is_file():
+            raise AdapterError(f"Doctavian template file is missing: {template.path}")
+        template_urn = self.upload_template(template.path.name, template.path.read_bytes())
 
         # Their templates address a root collection, so the record is wrapped
         # rather than sent flat: {"data": {"Invoice": [ ... ]}}. Verified against
         # the data file shipped with their own quickstart.
         payload = {
-            "data": {self._root: [{**dict(record), "SignetMark": mark, "SignetLocator": locator}]}
+            "data": {
+                template.root: [{**dict(record), "SignetMark": mark, "SignetLocator": locator}]
+            }
         }
         data_urn = self._upload_data(document_class, payload)
-        document_urn = self._generate(document_class, template.name, template_urn, data_urn)
+        document_urn = self._generate(document_class, template.path.name, template_urn, data_urn)
         return self._download(document_urn)
 
     def provision(self, name: str) -> Provisioning:

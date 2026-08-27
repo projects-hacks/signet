@@ -123,6 +123,7 @@ class EnrolmentBroker:
         brand: str,
         public_key: bytes,
         signer_email: str,
+        signer_name: str,
         diligence: str,
     ) -> Pending:
         """Put the authorisation in front of a person. Publishes nothing."""
@@ -153,7 +154,7 @@ class EnrolmentBroker:
             )
 
         envelope_id = self._gateway.send_for_signature(
-            document, signer_email, f"Signet enrolment for {domain}"
+            document, signer_email, signer_name, f"Signet enrolment for {domain}"
         )
         self._store.append_audit(
             reference,

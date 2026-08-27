@@ -20,6 +20,16 @@ class Envelope:
 
 
 class SignatureGateway(Protocol):
-    def send_for_signature(self, document: bytes, signer_email: str, subject: str) -> str: ...
+    def send_for_signature(
+        self, document: bytes, signer_email: str, signer_name: str, subject: str
+    ) -> str:
+        """Address the document to a person.
+
+        A name rather than only an address, because every gateway shows the
+        recipient who is being asked and an envelope addressed to a mailbox
+        reads like a machine sent it, which is the opposite of what a human
+        gate is for.
+        """
+        ...
 
     def fetch(self, envelope_id: str) -> Envelope: ...

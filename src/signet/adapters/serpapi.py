@@ -109,13 +109,17 @@ class SerpApiResolver:
             if isinstance(website, str):
                 domain = registrable(website)
                 sources.append(website)
-        if domain is None:
-            for result in _organic(payload):
-                link = result.get("link")
-                if isinstance(link, str):
-                    domain = registrable(link)
-                    sources.append(link)
-                    break
+        # Organic results are recorded but never answer the question. A first
+        # blue link is not an assertion that a brand owns a domain, and treating
+        # it as one is not a theoretical problem: searching a small freight
+        # company returned a New York town's .gov site, which as a canonical
+        # domain would have failed a genuine document and blocked a genuine
+        # enrolment. The knowledge graph is an entity claim; a search result is
+        # a page that mentioned the words.
+        for result in _organic(payload)[:_RESULT_LIMIT]:
+            link = result.get("link")
+            if isinstance(link, str):
+                sources.append(link)
         return BrandResolution(brand=brand, canonical_domain=domain, sources=tuple(sources))
 
     def diligence(self, domain: str, brand: str) -> Diligence:

@@ -50,7 +50,9 @@ class FakeGateway:
         self.sent: list[tuple[bytes, str, str]] = []
         self.envelope = envelope
 
-    def send_for_signature(self, document: bytes, signer_email: str, subject: str) -> str:
+    def send_for_signature(
+        self, document: bytes, signer_email: str, signer_name: str, subject: str
+    ) -> str:
         self.sent.append((document, signer_email, subject))
         return "env-1"
 
@@ -98,7 +100,7 @@ def test_requesting_a_release_publishes_nothing() -> None:
     gateway = FakeGateway()
 
     broker(gateway, store, publisher).request_release(
-        DOMAIN, BRAND, public, SIGNER, "nothing adverse"
+        DOMAIN, BRAND, public, SIGNER, "Ops Team", "nothing adverse"
     )
 
     assert publisher.writes == []
@@ -209,7 +211,7 @@ def test_a_template_that_dropped_the_reference_is_caught_before_anyone_signs() -
 
     with pytest.raises(ReleaseRefused, match="could never be released"):
         broker(gateway, store, publisher, FakeRenderer(drop_reference=True)).request_release(
-            DOMAIN, BRAND, public, SIGNER, "nothing adverse"
+            DOMAIN, BRAND, public, SIGNER, "Ops Team", "nothing adverse"
         )
     assert gateway.sent == []
 
@@ -220,7 +222,7 @@ def test_the_authorisation_says_what_it_is_authorising() -> None:
     _, public = generate_key()
     renderer = FakeRenderer()
     broker(FakeGateway(), FakeRecordStore(), FakeDnsPublisher(), renderer).request_release(
-        DOMAIN, BRAND, public, SIGNER, "no adverse coverage found"
+        DOMAIN, BRAND, public, SIGNER, "Ops Team", "no adverse coverage found"
     )
 
     document_class, record = renderer.calls[0]
