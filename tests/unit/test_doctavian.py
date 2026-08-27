@@ -6,6 +6,7 @@ the urn. Everything except the download comes back inside a result envelope.
 
 from __future__ import annotations
 
+import json
 from typing import Any
 
 import httpx
@@ -14,7 +15,18 @@ import pytest
 from signet.adapters.doctavian import DoctavianRenderer
 from signet.errors import AdapterError
 
-TEMPLATES = {"receipt": ("receipt.docx", "tmpl-urn")}
+TEMPLATES = {
+    "receipt": ("receipt.docx", "tmpl-urn"),
+    "invoice": ("invoice.docx", "tmpl-urn"),
+}
+
+
+def uploaded_record(seen: dict[str, Any]) -> dict[str, Any]:
+    """The record, dug out of the multipart body their upload endpoint takes."""
+    body = seen["data_body"].decode()
+    document: dict[str, Any] = json.loads(body[body.index("{") : body.rindex("}") + 1])
+    invoice: dict[str, Any] = document["data"]["Invoice"][0]
+    return invoice
 
 
 def envelope(data: dict[str, Any], status: int = 200) -> httpx.Response:
@@ -69,9 +81,30 @@ def test_the_mark_and_locator_travel_in_the_uploaded_data() -> None:
     seen: dict[str, Any] = {}
     renderer(happy_path(seen)).render("receipt", {"amt": "14.75"}, "S1|mark", "bluebottle.com/R-1")
 
+    record = uploaded_record(seen)
+    assert record["SignetMark"] == "S1|mark"
+    assert record["SignetLocator"] == "bluebottle.com/R-1"
+
+
+def test_the_record_is_wrapped_the_way_their_templates_address_it() -> None:
+    """Their templates address a root collection, so a flat body renders nothing."""
+    seen: dict[str, Any] = {}
+    renderer(happy_path(seen)).render("invoice", {"Number": "INV-1"}, "S1|m", "a.com/1")
+
     body = seen["data_body"].decode()
-    assert "signet_mark" in body
-    assert "bluebottle.com/R-1" in body
+    document = json.loads(body[body.index("{") : body.rindex("}") + 1])
+    assert list(document) == ["data"]
+    assert isinstance(document["data"]["Invoice"], list)
+    assert document["data"]["Invoice"][0]["Number"] == "INV-1"
+
+
+def test_a_record_can_carry_line_items() -> None:
+    """A document with lines cannot be described by a map of strings."""
+    seen: dict[str, Any] = {}
+    lines = [{"Description": "Haulage", "Quantity": 4, "LineAmount": 12800}]
+    renderer(happy_path(seen)).render("invoice", {"LineItems": lines}, "S1|m", "a.com/1")
+
+    assert uploaded_record(seen)["LineItems"][0]["LineAmount"] == 12800
 
 
 def test_generation_references_the_uploaded_data_and_template() -> None:
