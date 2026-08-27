@@ -114,12 +114,12 @@ def test_a_refused_renewal_names_the_command_that_fixes_it(tmp_path: Path) -> No
     def handler(request: httpx.Request) -> httpx.Response:
         return httpx.Response(400, json={"error": "invalid_grant"})
 
-    with pytest.raises(ConfigError, match="doctavian_login.py"):
+    with pytest.raises(ConfigError, match=r"doctavian_login\.py"):
         token(session_file(tmp_path, expires_at=0), handler)()
 
 
 def test_no_session_at_all_says_how_to_start_one(tmp_path: Path) -> None:
-    with pytest.raises(ConfigError, match="doctavian_login.py"):
+    with pytest.raises(ConfigError, match=r"doctavian_login\.py"):
         token(tmp_path / "absent.json", refused)()
 
 
