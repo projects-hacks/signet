@@ -149,7 +149,7 @@ def load_settings() -> Settings:
         ),
         doctavian=Credentials(
             "Doctavian",
-            (_get("DOCTAVIAN_API_KEY"), _get("DOCTAVIAN_TOKEN"), _get("DOCTAVIAN_BASE_URL")),
+            (_get("DOCTAVIAN_API_KEY"), _get("DOCTAVIAN_BASE_URL")),
         ),
         doctavian_templates=_templates(_get("DOCTAVIAN_TEMPLATES")),
         doctavian_signatures=Credentials(

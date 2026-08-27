@@ -1,4 +1,4 @@
-"""Obtain a Doctavian bearer token through their Microsoft OAuth proxy.
+"""Start a Doctavian session. Run once, not hourly.
 
 Their gateway wants two credentials: the x-api-key that names the environment,
 and a Microsoft token that names the caller. The key alone answers
@@ -6,6 +6,11 @@ and a Microsoft token that names the caller. The key alone answers
 
 Authorization code with PKCE, exactly as their Postman collection declares it.
 Run it, open the printed URL, sign in, then paste the code from the callback.
+
+The access token lives sixty five minutes. What matters here is the refresh
+token that comes with it, which is written to the session file and renewed
+automatically from then on. Signing in again is only needed if that refresh
+token is revoked or left unused long enough to lapse.
 """
 
 from __future__ import annotations
@@ -15,9 +20,17 @@ import hashlib
 import os
 import secrets
 import sys
+import time
 import urllib.parse
 
 import httpx
+
+from signet.adapters.doctavian_auth import (
+    DEFAULT_SESSION_PATH,
+    session_from,
+    write_session,
+)
+from signet.errors import AdapterError
 
 BASE = "https://demo.api.doctavian.com"
 PROVIDER = "microsoft"
@@ -85,14 +98,27 @@ def main() -> int:
         print(f"\n  Token exchange failed: {response.status_code}\n  {response.text[:400]}")
         return 1
 
-    token = response.json().get("access_token", "")
-    if not token:
-        print(f"\n  No access_token in the response:\n  {response.text[:400]}")
+    payload = response.json()
+    if not isinstance(payload, dict):
+        print(f"\n  Unexpected token response:\n  {response.text[:400]}")
+        return 1
+    try:
+        session = session_from(payload)
+    except AdapterError as exc:
+        print(f"\n  {exc}\n  {response.text[:400]}")
         return 1
 
-    print(f"\n  Token acquired, {len(token)} characters. Put this in .env:\n")
-    print(f"DOCTAVIAN_TOKEN={token}\n")
-    return 0
+    write_session(DEFAULT_SESSION_PATH, session)
+    minutes = (session.expires_at - time.time()) / 60
+    print(f"\n  Session written to {DEFAULT_SESSION_PATH}")
+    print(f"  Access token good for {minutes:.0f} minutes.")
+    if session.refresh_token:
+        print("  A refresh token came with it, so this renews itself from here.")
+        print("  Nothing to paste, and nothing to put in .env.\n")
+        return 0
+    print("\n  No refresh token came back, so this will need running again in an hour.")
+    print("  Check that the authorisation request asked for offline_access.\n")
+    return 1
 
 
 if __name__ == "__main__":

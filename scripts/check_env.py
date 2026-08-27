@@ -14,8 +14,9 @@ from pathlib import Path
 
 import httpx
 
+from signet.adapters.renderers import document_renderer
 from signet.config import Settings, load_settings
-from signet.errors import AdapterError
+from signet.errors import AdapterError, ConfigError
 
 OK = "  ok    "
 MISSING = "  unset "
@@ -65,7 +66,6 @@ _PROBE_PDF = _probe_page()
 
 def probe_live(settings: Settings) -> list[tuple[str, str, str]]:
     """Call the services whose credentials are present. Read-only calls only."""
-    from signet.adapters.doctavian import DoctavianRenderer
     from signet.adapters.namecom import NameComClient, NameComRegistrar
     from signet.adapters.nutrient import NutrientClient, NutrientExtractor
     from signet.adapters.rdap import RdapRegistrationData
@@ -93,15 +93,11 @@ def probe_live(settings: Settings) -> list[tuple[str, str, str]]:
             results.append(("name.com", FAILED, str(exc)[:70]))
 
     if settings.doctavian.configured:
-        api_key, token, base_url = settings.doctavian.values
         try:
-            renderer = DoctavianRenderer(
-                api_key=api_key, token_provider=lambda: token, templates={}, base_url=base_url
-            )
-            renderer.ping()
-            results.append(("Doctavian", OK, "both the token and the key were accepted"))
-        except AdapterError as exc:
-            results.append(("Doctavian", FAILED, str(exc)[:70]))
+            document_renderer(settings).ping()
+            results.append(("Doctavian", OK, "the session renewed and the key was accepted"))
+        except (AdapterError, ConfigError) as exc:
+            results.append(("Doctavian", FAILED, str(exc)[:90]))
 
     if settings.nutrient.configured:
         try:
