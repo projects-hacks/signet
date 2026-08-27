@@ -27,13 +27,15 @@ class Verdict(Enum):
     FLAGGED = "flagged"
 
 
-# Ordered by how much a reader needs to hear it first, not alphabetically.
+# Ordered by how much a reader needs to hear it first, not alphabetically. A page
+# that contradicts what was signed is an alteration, while the same document sent
+# twice is often just a chased payment, so alteration is the louder finding.
 CRITICAL_CHECKS: tuple[str, ...] = (
     "signature",
     "identity",
     "lookalike",
-    "duplicate",
     "fidelity",
+    "duplicate",
 )
 
 

@@ -53,6 +53,19 @@ def render_mark(text: str, box_pixels: int = _BOX_PIXELS) -> bytes:
     return buffer.getvalue()
 
 
+def _opened(opener: Any, content: bytes) -> Any:
+    """Open an image, or say so in our own vocabulary.
+
+    Anything a reader uploads can turn out not to be an image, and a caller that
+    has to catch an imaging library's exception is a caller that has this
+    adapter's dependencies in its own code.
+    """
+    try:
+        return opener(io.BytesIO(content))
+    except Exception as exc:
+        raise AdapterError(f"could not decode the image: {exc}") from exc
+
+
 class Decoder(Protocol):
     name: str
 
@@ -79,8 +92,30 @@ class ZbarDecoder:
         self._decode = decode
 
     def decode(self, content: bytes) -> tuple[str, ...]:
-        results = self._decode(self._open(io.BytesIO(content)))
+        results = self._decode(_opened(self._open, content))
         return tuple(item.data.decode("utf-8", errors="replace") for item in results if item.data)
+
+
+class ZxingDecoder:
+    """Reads what OpenCV cannot, and installs from a wheel.
+
+    OpenCV's detector fails on the larger versions this payload needs, which is
+    how a mark that is plainly present reads as absent. This one carries its own
+    native library, so unlike zbar it needs nothing from the system.
+    """
+
+    name = "zxing"
+
+    def __init__(self) -> None:
+        import zxingcpp
+        from PIL import Image
+
+        self._open = Image.open
+        self._read = zxingcpp.read_barcodes
+
+    def decode(self, content: bytes) -> tuple[str, ...]:
+        results = self._read(_opened(self._open, content))
+        return tuple(item.text for item in results if item.text)
 
 
 class OpenCvDecoder:
@@ -114,6 +149,8 @@ def available_decoders() -> tuple[Decoder, ...]:
     decoders: list[Decoder] = []
     with contextlib.suppress(ImportError, OSError):
         decoders.append(ZbarDecoder())
+    with contextlib.suppress(ImportError, OSError):
+        decoders.append(ZxingDecoder())
     decoders.append(OpenCvDecoder())
     return tuple(decoders)
 

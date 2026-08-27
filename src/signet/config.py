@@ -13,6 +13,7 @@ from __future__ import annotations
 import os
 from collections.abc import Mapping
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Final
 
 from signet.errors import ConfigError
@@ -79,7 +80,7 @@ class Settings:
     foxit_services: Credentials
     foxit_esign: Credentials
     doctavian: Credentials
-    doctavian_templates: Mapping[str, tuple[str, str]]
+    doctavian_templates: Mapping[str, Path]
     doctavian_signatures: Credentials
     namecom: Credentials
     serpapi: Credentials
@@ -108,20 +109,19 @@ def _get(name: str, default: str = "") -> str:
     return os.environ.get(name, default).strip()
 
 
-def _templates(raw: str) -> Mapping[str, tuple[str, str]]:
-    """Parse class=name:urn pairs, so adding a document class is configuration.
+def _templates(raw: str) -> Mapping[str, Path]:
+    """Parse class=path pairs, so adding a document class is configuration.
 
-    A template is provisioned once per account and its urn is not knowable at
-    build time, which makes it environment rather than code.
+    Which template renders which class is deployment specific, and the file is
+    the thing that has to exist rather than a reference to it.
     """
-    parsed: dict[str, tuple[str, str]] = {}
+    parsed: dict[str, Path] = {}
     for entry in raw.split(","):
         entry = entry.strip()
-        if not entry or "=" not in entry or ":" not in entry:
+        if not entry or "=" not in entry:
             continue
-        document_class, rest = entry.split("=", 1)
-        name, urn = rest.split(":", 1)
-        parsed[document_class.strip()] = (name.strip(), urn.strip())
+        document_class, path = entry.split("=", 1)
+        parsed[document_class.strip()] = Path(path.strip())
     return parsed
 
 

@@ -16,7 +16,6 @@ from datetime import UTC, date, datetime
 from pathlib import Path
 
 from signet.adapters.dns_multi import DohResolver
-from signet.adapters.doctavian import DoctavianRenderer
 from signet.adapters.local_store import DEFAULT_PATH
 from signet.adapters.namecom import NameComClient, NameComDns
 from signet.adapters.nutrient import NutrientClient, NutrientExtractor
@@ -24,6 +23,7 @@ from signet.adapters.page import page_with_mark
 from signet.adapters.qr import ImageMarkReader, render_mark
 from signet.adapters.rdap import RdapRegistrationData
 from signet.adapters.records import record_store
+from signet.adapters.renderers import document_renderer
 from signet.config import load_settings
 from signet.constants import DNS_LABEL
 from signet.core.mark import encode_mark, format_locator
@@ -145,14 +145,8 @@ def issue(args: argparse.Namespace) -> int:
         # the artifact. Useful for a quick check, never what a reader receives.
         out.write_bytes(render_mark(mark))
     else:
-        renderer = DoctavianRenderer(
-            api_key=settings.doctavian.values[0],
-            token_provider=lambda: settings.doctavian.values[1],
-            template_urns=settings.doctavian_templates,
-            base_url=settings.doctavian.values[2],
-        )
-        document = renderer.render(fields["cls"], record, mark, locator)
-        out.write_bytes(page_with_mark(document, render_mark(mark)))
+        document = document_renderer(settings).render(fields["cls"], record, mark, locator)
+        out.write_bytes(page_with_mark(document, mark))
 
     print(f"mark      {len(mark)} bytes")
     print(f"locator   {locator}")

@@ -22,6 +22,7 @@ def settings() -> Settings:
         foxit_services=unset,
         foxit_esign=unset,
         doctavian=unset,
+        doctavian_templates={},
         doctavian_signatures=unset,
         namecom=unset,
         serpapi=unset,

@@ -13,6 +13,13 @@ requests, not one.
 A Data Source and a Document Solution are account level setup, not per document.
 provision() creates them once; render() never touches them.
 
+A template reference is not durable. On the demo environment a generation consumes
+the uploaded template, and the next generation against the same urn fails with
+FILE_MISSING_FROM_STORAGE. Confirmed by uploading once and generating three times:
+the first succeeded and the rest did not. So a template is configured as a file on
+disk and uploaded as part of every render, rather than provisioned once and
+referenced by urn.
+
 Auth is two headers. The bearer is a personal access token taken from the portal
 Authorization tab, and x-api-key is a key from the API Keys tab, scoped to an API
 version. The token arrives through a provider rather than as a string so a
@@ -33,6 +40,7 @@ from __future__ import annotations
 import json
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any, Final
 
 import httpx
@@ -101,7 +109,7 @@ class DoctavianRenderer:
         self,
         api_key: str,
         token_provider: TokenProvider,
-        template_urns: Mapping[str, tuple[str, str]],
+        templates: Mapping[str, Path],
         base_url: str = BASE_URL,
         client: httpx.Client | None = None,
         locale: str = "en",
@@ -110,7 +118,7 @@ class DoctavianRenderer:
     ) -> None:
         self._api_key = api_key
         self._token = token_provider
-        self._templates = template_urns
+        self._templates = templates
         self._base_url = base_url.rstrip("/")
         self._locale = locale
         self._timezone = timezone
@@ -125,7 +133,9 @@ class DoctavianRenderer:
             raise AdapterError(
                 f"no Doctavian template configured for document class {document_class!r}"
             )
-        template_name, template_urn = template
+        if not template.is_file():
+            raise AdapterError(f"Doctavian template file is missing: {template}")
+        template_urn = self.upload_template(template.name, template.read_bytes())
 
         # Their templates address a root collection, so the record is wrapped
         # rather than sent flat: {"data": {"Invoice": [ ... ]}}. Verified against
@@ -134,7 +144,7 @@ class DoctavianRenderer:
             "data": {self._root: [{**dict(record), "SignetMark": mark, "SignetLocator": locator}]}
         }
         data_urn = self._upload_data(document_class, payload)
-        document_urn = self._generate(document_class, template_name, template_urn, data_urn)
+        document_urn = self._generate(document_class, template.name, template_urn, data_urn)
         return self._download(document_urn)
 
     def provision(self, name: str) -> Provisioning:

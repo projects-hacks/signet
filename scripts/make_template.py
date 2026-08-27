@@ -55,8 +55,13 @@ def build() -> None:
         section.left_margin = section.right_margin = Pt(54)
         section.top_margin = section.bottom_margin = Pt(54)
 
-    line(document, "NORTHPOST", size=20, bold=True, space_after=0)
-    line(document, "Northpost Freight Services  ·  northpost.dev", size=9, space_after=18)
+    line(document, "{!Invoice.PayeeMark}", size=20, bold=True, space_after=0)
+    line(
+        document,
+        "{!Invoice.PayeeName}  ·  {!Invoice.PayeeDomain}",
+        size=9,
+        space_after=18,
+    )
 
     line(document, "INVOICE {!Invoice.Number}", size=14, bold=True, space_after=2)
     line(document, "Billed to {!Invoice.CustomerName}", space_after=2)
@@ -122,7 +127,7 @@ def build() -> None:
     line(document, "{!Invoice.SignetMark}", size=6, mono=True, space_after=2)
     line(
         document,
-        "The key is published at _signet.northpost.dev. Check it with dig and "
+        "The key is published at _signet.{!Invoice.PayeeDomain}. Check it with dig and "
         "openssl, without an account here.",
         size=8,
         space_after=0,

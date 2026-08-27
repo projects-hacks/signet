@@ -7,6 +7,8 @@ the urn. Everything except the download comes back inside a result envelope.
 from __future__ import annotations
 
 import json
+import tempfile
+from pathlib import Path
 from typing import Any
 
 import httpx
@@ -15,10 +17,12 @@ import pytest
 from signet.adapters.doctavian import DoctavianRenderer
 from signet.errors import AdapterError
 
-TEMPLATES = {
-    "receipt": ("receipt.docx", "tmpl-urn"),
-    "invoice": ("invoice.docx", "tmpl-urn"),
-}
+# A render uploads its template, so the files have to exist on disk.
+_TEMPLATE_DIR = Path(tempfile.mkdtemp())
+TEMPLATES = {}
+for _name in ("receipt.docx", "invoice.docx"):
+    (_TEMPLATE_DIR / _name).write_bytes(b"docx bytes")
+    TEMPLATES[_name.removesuffix(".docx")] = _TEMPLATE_DIR / _name
 
 
 def uploaded_record(seen: dict[str, Any]) -> dict[str, Any]:
@@ -33,13 +37,11 @@ def envelope(data: dict[str, Any], status: int = 200) -> httpx.Response:
     return httpx.Response(status, json={"result": {"data": data, "statusCode": status}})
 
 
-def renderer(
-    handler: Any, templates: dict[str, tuple[str, str]] | None = None
-) -> DoctavianRenderer:
+def renderer(handler: Any, templates: dict[str, Path] | None = None) -> DoctavianRenderer:
     return DoctavianRenderer(
         api_key="documents-key",
         token_provider=lambda: "bearer-token",
-        template_urns=TEMPLATES if templates is None else templates,
+        templates=TEMPLATES if templates is None else templates,
         client=httpx.Client(transport=httpx.MockTransport(handler)),
     )
 
@@ -50,6 +52,8 @@ def happy_path(seen: dict[str, Any]) -> Any:
         seen.setdefault("paths", []).append(path)
         seen["auth"] = request.headers.get("Authorization")
         seen["key"] = request.headers.get("x-api-key")
+        if path.endswith("/template/upload"):
+            return envelope({"files": [{"id": "tmpl-urn", "fileName": "receipt.docx"}]}, 201)
         if path.endswith("/data/upload"):
             seen["data_body"] = request.read()
             return envelope({"files": [{"id": "data-urn", "fileName": "receipt.json"}]}, 201)
@@ -71,6 +75,7 @@ def test_a_render_uploads_generates_and_downloads() -> None:
 
     assert out == b"%PDF-1.7 real bytes"
     assert seen["paths"] == [
+        "/v1/documents/template/upload",
         "/v1/documents/data/upload",
         "/v1/documents/document/generate",
         "/v1/documents/document/doc-urn/download",
@@ -145,8 +150,8 @@ def test_provisioning_returns_both_guids() -> None:
 
 def test_a_missing_urn_is_an_adapter_error_not_a_key_error() -> None:
     def handler(request: httpx.Request) -> httpx.Response:
-        if request.url.path.endswith("/data/upload"):
-            return envelope({"files": [{"id": "data-urn"}]}, 201)
+        if request.url.path.endswith("/upload"):
+            return envelope({"files": [{"id": "an-urn"}]}, 201)
         return envelope({"document": {}}, 201)
 
     with pytest.raises(AdapterError, match="no document urn"):
