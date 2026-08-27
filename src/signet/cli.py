@@ -8,6 +8,7 @@ the pipeline and prints the result, so anything it can do the library can do.
 from __future__ import annotations
 
 import argparse
+import json
 import sys
 import time
 import uuid
@@ -15,9 +16,11 @@ from datetime import UTC, date, datetime
 from pathlib import Path
 
 from signet.adapters.dns_multi import DohResolver
+from signet.adapters.doctavian import DoctavianRenderer
 from signet.adapters.local_store import DEFAULT_PATH
 from signet.adapters.namecom import NameComClient, NameComDns
 from signet.adapters.nutrient import NutrientClient, NutrientExtractor
+from signet.adapters.page import page_with_mark
 from signet.adapters.qr import ImageMarkReader, render_mark
 from signet.adapters.rdap import RdapRegistrationData
 from signet.adapters.records import record_store
@@ -134,7 +137,23 @@ def issue(args: argparse.Namespace) -> int:
     locator = format_locator(fields["iss"], fields["id"])
 
     out = Path(args.out)
-    out.write_bytes(render_mark(mark))
+    settings = load_settings()
+    record = json.loads(Path(args.record).read_text(encoding="utf-8")) if args.record else None
+
+    if record is None:
+        # No record, so there is no document to carry the mark and the mark is
+        # the artifact. Useful for a quick check, never what a reader receives.
+        out.write_bytes(render_mark(mark))
+    else:
+        renderer = DoctavianRenderer(
+            api_key=settings.doctavian.values[0],
+            token_provider=lambda: settings.doctavian.values[1],
+            template_urns=settings.doctavian_templates,
+            base_url=settings.doctavian.values[2],
+        )
+        document = renderer.render(fields["cls"], record, mark, locator)
+        out.write_bytes(page_with_mark(document, render_mark(mark)))
+
     print(f"mark      {len(mark)} bytes")
     print(f"locator   {locator}")
     print(f"written   {out}")
@@ -204,6 +223,11 @@ def build_parser() -> argparse.ArgumentParser:
     make.add_argument("--id", default="")
     make.add_argument("--field", action="append", default=[], metavar="KEY=VALUE")
     make.add_argument("--out", default="mark.png")
+    make.add_argument(
+        "--record",
+        default="",
+        help="JSON of the document a reader receives, rendered through Doctavian",
+    )
     make.set_defaults(handler=issue)
 
     check = sub.add_parser("verify", help="verify a document")

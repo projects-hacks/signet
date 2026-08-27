@@ -11,6 +11,7 @@ the next person will not know it exists.
 from __future__ import annotations
 
 import os
+from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Final
 
@@ -78,6 +79,7 @@ class Settings:
     foxit_services: Credentials
     foxit_esign: Credentials
     doctavian: Credentials
+    doctavian_templates: Mapping[str, tuple[str, str]]
     doctavian_signatures: Credentials
     namecom: Credentials
     serpapi: Credentials
@@ -104,6 +106,23 @@ class Settings:
 
 def _get(name: str, default: str = "") -> str:
     return os.environ.get(name, default).strip()
+
+
+def _templates(raw: str) -> Mapping[str, tuple[str, str]]:
+    """Parse class=name:urn pairs, so adding a document class is configuration.
+
+    A template is provisioned once per account and its urn is not knowable at
+    build time, which makes it environment rather than code.
+    """
+    parsed: dict[str, tuple[str, str]] = {}
+    for entry in raw.split(","):
+        entry = entry.strip()
+        if not entry or "=" not in entry or ":" not in entry:
+            continue
+        document_class, rest = entry.split("=", 1)
+        name, urn = rest.split(":", 1)
+        parsed[document_class.strip()] = (name.strip(), urn.strip())
+    return parsed
 
 
 def load_settings() -> Settings:
@@ -137,6 +156,7 @@ def load_settings() -> Settings:
             "Doctavian",
             (_get("DOCTAVIAN_API_KEY"), _get("DOCTAVIAN_TOKEN"), _get("DOCTAVIAN_BASE_URL")),
         ),
+        doctavian_templates=_templates(_get("DOCTAVIAN_TEMPLATES")),
         doctavian_signatures=Credentials(
             "Doctavian Signatures",
             # Their portal scopes the key by API version. If it turns out to
