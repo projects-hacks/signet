@@ -106,6 +106,7 @@ class DoctavianRenderer:
         client: httpx.Client | None = None,
         locale: str = "en",
         timezone: str = "UTC",
+        root: str = "Invoice",
     ) -> None:
         self._api_key = api_key
         self._token = token_provider
@@ -113,10 +114,11 @@ class DoctavianRenderer:
         self._base_url = base_url.rstrip("/")
         self._locale = locale
         self._timezone = timezone
+        self._root = root
         self._client = client or http.client(_TIMEOUT_SECONDS)
 
     def render(
-        self, document_class: str, fields: Mapping[str, str], mark: str, locator: str
+        self, document_class: str, record: Mapping[str, object], mark: str, locator: str
     ) -> bytes:
         template = self._templates.get(document_class)
         if template is None:
@@ -125,7 +127,12 @@ class DoctavianRenderer:
             )
         template_name, template_urn = template
 
-        payload = {**dict(fields), "signet_mark": mark, "signet_locator": locator}
+        # Their templates address a root collection, so the record is wrapped
+        # rather than sent flat: {"data": {"Invoice": [ ... ]}}. Verified against
+        # the data file shipped with their own quickstart.
+        payload = {
+            "data": {self._root: [{**dict(record), "SignetMark": mark, "SignetLocator": locator}]}
+        }
         data_urn = self._upload_data(document_class, payload)
         document_urn = self._generate(document_class, template_name, template_urn, data_urn)
         return self._download(document_urn)
@@ -167,7 +174,7 @@ class DoctavianRenderer:
         response = self._request("GET", "/documents/document/list")
         return response.is_success
 
-    def _upload_data(self, document_class: str, payload: Mapping[str, str]) -> str:
+    def _upload_data(self, document_class: str, payload: Mapping[str, object]) -> str:
         body = json.dumps(payload, indent=2).encode("utf-8")
         return _first_uploaded_id(
             _unwrap(

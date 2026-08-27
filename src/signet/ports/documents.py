@@ -73,5 +73,14 @@ class MarkReader(Protocol):
 
 class DocumentRenderer(Protocol):
     def render(
-        self, document_class: str, fields: Mapping[str, str], mark: str, locator: str
+        self, document_class: str, record: Mapping[str, object], mark: str, locator: str
     ) -> bytes: ...
+
+    """Produce the document a reader will hold, carrying the mark.
+
+    record is arbitrary structured data, not flat strings, because a real
+    document has line items and a template that can loop over them is the
+    difference between a document system and a mail merge. The signature still
+    covers only the payment critical fields; the rest is what makes the page
+    worth reading.
+    """

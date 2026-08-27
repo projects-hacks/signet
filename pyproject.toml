@@ -47,6 +47,7 @@ dev = [
     "pre-commit>=4.0",
     "types-qrcode>=8.2.0.20260518",
     "playwright>=1.62.0",
+    "python-docx>=1.2.0",
 ]
 
 [tool.ruff]
