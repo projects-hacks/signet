@@ -39,9 +39,11 @@ The cost of a false release is a domain vouching for a forger indefinitely.
 from __future__ import annotations
 
 import hashlib
+from collections.abc import Sequence
 from dataclasses import dataclass
-from typing import Final, Protocol
+from typing import Any, Final, Protocol
 
+from signet.core.interpretation import Interpretation
 from signet.core.signing import encode_public_key
 from signet.errors import SignetError
 from signet.issue.publish import KeyPublisher
@@ -125,6 +127,7 @@ class EnrolmentBroker:
         signer_email: str,
         signer_name: str,
         diligence: str,
+        interpretations: Sequence[Interpretation] = (),
     ) -> Pending:
         """Put the authorisation in front of a person. Publishes nothing."""
         reference = authorisation_hash(domain, brand, public_key)
@@ -138,6 +141,7 @@ class EnrolmentBroker:
                 "Fingerprint": _fingerprint(public_key),
                 "Diligence": diligence,
                 "AuthorisationHash": reference,
+                "Readings": _readings(interpretations),
             },
             reference,
             f"{domain}/enrolment",
@@ -209,6 +213,25 @@ class EnrolmentBroker:
             },
         )
         return Released(domain=pending.domain, brand=pending.brand, record=record)
+
+
+def _readings(interpretations: Sequence[Interpretation]) -> list[dict[str, Any]]:
+    """The readings in the shape the template loops over.
+
+    Uncertain is a number rather than a flag because the template branches on a
+    sum across the collection, which is the one aggregate their expressions are
+    confirmed to support.
+    """
+    return [
+        {
+            "Field": reading.field.replace("_", " "),
+            "Value": reading.value,
+            "Quote": reading.quote,
+            "Note": reading.note,
+            "Uncertain": 1 if reading.uncertain else 0,
+        }
+        for reading in interpretations
+    ]
 
 
 def _fingerprint(public_key: bytes) -> str:

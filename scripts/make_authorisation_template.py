@@ -103,6 +103,53 @@ def build() -> None:
     line(document, "WHAT WAS CHECKED BEFORE ASKING", size=9, bold=True, space_after=4)
     line(document, "{!Enrolment.Diligence}", size=9, space_after=14)
 
+    # Enrolment starts from whatever the issuer actually sent: a forwarded
+    # thread, a chat log, a scan. None of it is labelled, and the fields above
+    # were read out of it. Printing each field beside the line it came from is
+    # what makes this document worth signing rather than worth clicking through.
+    line(document, "HOW THIS WAS READ", size=9, bold=True, space_after=4)
+    line(
+        document,
+        "Each field above was read out of the request as it arrived. The line it "
+        "came from is printed beside it. Correct anything that is wrong before signing.",
+        size=9,
+        space_after=8,
+    )
+    line(
+        document,
+        '<mdoc:repeater name="readings" value="{!Enrolment.Readings}" '
+        'variable="item" mode="standard">',
+        space_after=2,
+    )
+    line(document, "{!#item#.Field}   {!#item#.Value}", size=9, bold=True, space_after=1)
+    line(
+        document,
+        '   read from "{!#item#.Quote}"   ·   {!#item#.Note}',
+        size=8,
+        space_after=6,
+    )
+    line(document, '</mdoc:repeater name="readings">', space_after=8)
+
+    # Branches on the readings themselves. A request that said one thing plainly
+    # gets no warning; one the text supported two answers for gets a warning
+    # naming that, decided here rather than by the caller.
+    line(
+        document,
+        '<mdoc:paragraph name="ambiguous" '
+        'hidden="{!$toDecimal(sum(Enrolment.Readings, "Uncertain")) < 1}">',
+        space_after=2,
+    )
+    line(
+        document,
+        "At least one field above had more than one possible reading in the text. "
+        "Those lines name the reading that was rejected. Check them against what "
+        "you meant before putting your name to this.",
+        size=9,
+        bold=True,
+        space_after=2,
+    )
+    line(document, '</mdoc:paragraph name="ambiguous">', space_after=14)
+
     # The string the broker looks for in the executed document. Printed rather
     # than encoded, so a person can compare it against what they were sent.
     line(document, "AUTHORISATION REFERENCE", size=9, bold=True, space_after=4)

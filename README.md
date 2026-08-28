@@ -98,10 +98,27 @@ than inventing one.
 
 ## Enrolment, and the one thing the agent cannot do
 
-An agent takes a plain sentence and gets an issuer to the point of signing:
-it resolves the brand against live search, generates a keypair, has the
-authorisation document produced, reads it back to confirm nothing was lost, and
-sends it for a human signature.
+An agent takes whatever the issuer actually sent and gets them to the point of
+signing. Nobody has the request as a sentence; they have the thread it arrived
+in, with the marketing domain, the invoicing domain and somebody else's guess
+all in the same paragraph, the signer on a cc line, and a legal disclaimer at
+the bottom.
+
+```
+signet enrol @assets/enrolment-request.txt
+```
+
+The agent reads the domain, the brand and the signer out of that, quoting the
+line each one came from. Every quote is checked against the text rather than
+believed, and a domain that appears nowhere in the request is refused however
+confidently it is asserted. Then it resolves the brand against live search,
+generates a keypair, has the authorisation produced, reads it back to confirm
+nothing was lost, and sends it for a human signature.
+
+The authorisation prints each field beside the line it was read from, and says
+plainly where the text supported a second answer that was not chosen. That is
+what makes the signature worth asking for: the person is being shown the
+readings, not just the conclusion.
 
 Then it stops. Publishing a key to DNS is the only irreversible act in the
 system, and no path through the agent reaches it. The broker publishes, and only
@@ -120,7 +137,7 @@ has the transcripts.
 
 | | |
 | --- | --- |
-| [Doctavian](https://www.doctavian.com) | produces the invoice and the authorisation from verified data, looping, summing and branching in the template |
+| [Doctavian](https://www.doctavian.com) | turns a forwarded thread into the invoice and the enrolment authorisation, looping over the readings, summing them and branching on the result in the template |
 | [name.com](https://www.name.com) | publishes the key on the issuer's own domain, and answers the sweep for lookalike registrations |
 | [Nutrient](https://www.nutrient.io) | reads the page as it actually arrived, with a confidence and a bounding box per field |
 | [SerpApi](https://serpapi.com) | asks the live web which domain a brand publishes, which is the only way to catch impersonation of a company nobody enrolled |

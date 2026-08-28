@@ -28,10 +28,19 @@ SYSTEM: Final = """You enrol issuers into Signet.
 Enrolment binds a brand to a domain and ends with that domain publishing a
 signing key. Work one step at a time and call one tool per turn.
 
-The order is not yours to choose. Look up the brand on the live web before
-drafting anything, so the authorisation states what was checked. You may do
-anything reversible. You may never publish to DNS: a person signs the
-authorisation and the broker publishes against the signed document.
+What you are given is whatever the issuer sent: a forwarded thread, a chat log,
+a pasted form. It is not structured and it is not tidy. Read the domain, the
+brand and the person who can sign out of it, and record each one with the line
+you read it from, copied word for word. Where the text supports two answers,
+record the one you chose and name the one you rejected. Do not smooth over a
+disagreement in the text by picking quietly.
+
+The order is not yours to choose. Record what you read, look the brand up on the
+live web, generate the signing key, and only then draft the authorisation, so
+what a person is asked to sign states what was checked and names the key it
+would publish. You may do anything reversible. You may never publish to DNS: a
+person signs the authorisation and the broker publishes against the signed
+document.
 
 A lookup that finds no published domain is not a reason to stop. Most companies
 have no entry the open web will vouch for, and the authorisation records that
@@ -48,9 +57,19 @@ class Transcript:
     """What happened, in the order it happened."""
 
     messages: list[dict[str, Any]] = field(default_factory=list)
-    tools_called: list[str] = field(default_factory=list)
-    refusals: list[tuple[str, str]] = field(default_factory=list)
+    # One entry per call, with the reason it was refused or None. Keyed by
+    # position rather than by name because a tool refused twice is refused
+    # twice for two reasons, and collapsing them hides the second.
+    steps: list[tuple[str, str | None]] = field(default_factory=list)
     reply: str = ""
+
+    @property
+    def tools_called(self) -> list[str]:
+        return [name for name, _ in self.steps]
+
+    @property
+    def refusals(self) -> list[tuple[str, str]]:
+        return [(name, reason) for name, reason in self.steps if reason is not None]
 
     @property
     def refused_tools(self) -> list[str]:
@@ -78,6 +97,10 @@ class Agent:
         self._toolbox = toolbox
 
     def run(self, request: str, max_turns: int = MAX_TURNS) -> Transcript:
+        # The toolbox checks quotes against this rather than against whatever the
+        # conversation says the request was, because the conversation is written
+        # by the thing being checked.
+        self._toolbox.source = request
         transcript = Transcript(
             messages=[
                 {"role": "system", "content": SYSTEM},
@@ -108,10 +131,7 @@ class Agent:
                 function = request_call["function"]
                 name = function["name"]
                 result = call(self._toolbox, name, function.get("arguments", "{}"))
-                transcript.tools_called.append(name)
-                refusal = _refusal(result)
-                if refusal is not None:
-                    transcript.refusals.append((name, refusal))
+                transcript.steps.append((name, _refusal(result)))
                 transcript.messages.append(
                     {"role": "tool", "tool_call_id": request_call["id"], "content": result}
                 )

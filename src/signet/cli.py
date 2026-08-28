@@ -156,18 +156,28 @@ def issue(args: argparse.Namespace) -> int:
 
 def enrol_issuer(args: argparse.Namespace) -> int:
     """Run the enrolment agent, and show every step it took."""
+    # Nobody has the request as a sentence. They have the thread it arrived in,
+    # so the thread is what the command takes.
+    if args.request == "-":
+        request = sys.stdin.read()
+    elif args.request.startswith("@"):
+        request = Path(args.request[1:]).read_text(encoding="utf-8")
+    else:
+        request = args.request
+    if not request.strip():
+        print("  nothing to read")
+        return 1
+
     agent = build_agent(load_settings(), Path(args.store))
-    transcript = agent.run(args.request, max_turns=args.turns)
+    transcript = agent.run(request, max_turns=args.turns)
 
     print()
-    reasons = dict(transcript.refusals)
-    for name in transcript.tools_called:
-        refused = name in reasons
-        print(f"  [{'refused' if refused else 'ok':>7}]  {name}")
-        if refused:
+    for name, reason in transcript.steps:
+        print(f"  [{'refused' if reason else 'ok':>7}]  {name}")
+        if reason:
             # Without the reason a refusal reads as a failure, and the agent's
             # own summary of what happened is not evidence of what happened.
-            print(f"             {reasons[name]}")
+            print(f"             {reason}")
     print(f"\n  {transcript.reply}\n")
     # A refusal is the system working, so it is not an error. An enrolment that
     # never reached a signature is, because nothing is waiting on a person.
@@ -261,8 +271,11 @@ def build_parser() -> argparse.ArgumentParser:
     )
     make.set_defaults(handler=issue)
 
-    enrol = sub.add_parser("enrol", help="enrol an issuer from a plain sentence")
-    enrol.add_argument("request", help="what you want, in your own words")
+    enrol = sub.add_parser("enrol", help="enrol an issuer from whatever they sent")
+    enrol.add_argument(
+        "request",
+        help="the request itself, @path to read a file, or - to read standard input",
+    )
     enrol.add_argument("--turns", type=int, default=MAX_TURNS)
     enrol.set_defaults(handler=enrol_issuer)
 

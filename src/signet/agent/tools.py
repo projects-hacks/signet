@@ -12,8 +12,11 @@ agent that calls these out of order is told no and carries on, and the answer it
 gets back is an ordinary tool result rather than an exception, because a refusal
 is information the model should act on rather than a crash.
 
-Three rules, in the order they bite:
+Four rules, in the order they bite:
 
+  Attribution before anything. A field the model cannot point at in the
+  request it was given is a field it made up, and the pointing is checked
+  against the text rather than taken.
   Diligence before drafting. An authorisation nobody checked is a form.
   The signing domain is compared by us, never by the model.
   Publishing is not here at all. It lives on the broker, which the agent
@@ -26,6 +29,13 @@ import json
 from dataclasses import dataclass, field
 from typing import Any, Final
 
+from signet.core.interpretation import (
+    FIELDS,
+    VERBATIM,
+    Interpretation,
+    present_in,
+    quoted_from,
+)
 from signet.core.lookalike import is_confusable
 from signet.core.signing import generate_key
 from signet.errors import SignetError
@@ -33,6 +43,8 @@ from signet.issue.broker import EnrolmentBroker, Pending
 from signet.ports.intelligence import EntityResolver
 
 MAX_DILIGENCE_CHARACTERS: Final = 600
+MAX_QUOTE_CHARACTERS: Final = 200
+REQUIRED_FIELDS: Final = ("domain", "brand", "signer_email")
 
 
 class ToolRefused(SignetError):
@@ -50,9 +62,55 @@ class Toolbox:
 
     resolver: EntityResolver
     broker: EnrolmentBroker
+    source: str = ""
     resolved: dict[str, Any] | None = field(default=None, init=False)
     keys: dict[str, tuple[bytes, bytes]] = field(default_factory=dict, init=False)
     pending: Pending | None = field(default=None, init=False)
+    readings: dict[str, Interpretation] = field(default_factory=dict, init=False)
+
+    def record_interpretation(
+        self, field_name: str, value: str, quote: str, alternative: str = ""
+    ) -> dict[str, Any]:
+        """State one field read out of the request, and where it was read.
+
+        The quote has to be in the text. That is the whole point: a model asked
+        for evidence will produce evidence, and unchecked evidence is prose.
+        """
+        if field_name not in FIELDS:
+            raise ToolRefused(
+                f"There is no field called {field_name!r}. The fields are {', '.join(FIELDS)}."
+            )
+        if not value.strip():
+            raise ToolRefused(f"No value was given for {field_name}.")
+        if not self.source.strip():
+            raise ToolRefused(
+                "There is no request text to read from, so nothing can be attributed to it."
+            )
+        if not quoted_from(quote, self.source):
+            raise ToolRefused(
+                f"That line is not in the request. Quote {field_name} from the text you "
+                "were given, copied exactly, rather than describing where it came from."
+            )
+        if field_name in VERBATIM and not present_in(value, self.source):
+            raise ToolRefused(
+                f"{value!r} does not appear anywhere in the request. A {field_name} has "
+                "to be read off the text, not inferred from it."
+            )
+
+        reading = Interpretation(
+            field=field_name,
+            value=value.strip(),
+            quote=" ".join(quote.split())[:MAX_QUOTE_CHARACTERS],
+            alternative=alternative.strip(),
+        )
+        self.readings[field_name] = reading
+        return {
+            "field": reading.field,
+            "value": reading.value,
+            "quote": reading.quote,
+            "note": reading.note,
+            "still_needed": [name for name in REQUIRED_FIELDS if name not in self.readings],
+        }
 
     def resolve_counterparty(self, brand: str) -> dict[str, Any]:
         """What the open web publishes for this brand."""
@@ -89,6 +147,26 @@ class Toolbox:
         ):
             return self._sent(signer_email)
 
+        missing = [name for name in REQUIRED_FIELDS if name not in self.readings]
+        if missing:
+            raise ToolRefused(
+                f"Nothing has been read out of the request for {', '.join(missing)}. Call "
+                "record_interpretation for each field, quoting the line it came from, "
+                "before asking anyone to sign for it."
+            )
+        for name, given in (
+            ("domain", domain),
+            ("brand", brand),
+            ("signer_email", signer_email),
+        ):
+            read = self.readings[name].value
+            if read.casefold() != given.strip().casefold():
+                raise ToolRefused(
+                    f"The {name} read out of the request was {read!r} and this "
+                    f"authorisation says {given!r}. Draft what was read, or record what "
+                    "changed your reading."
+                )
+
         if self.resolved is None:
             raise ToolRefused(
                 "Nothing has been looked up yet. Call resolve_counterparty for this "
@@ -116,7 +194,11 @@ class Toolbox:
             )
 
         if domain not in self.keys:
-            raise ToolRefused(f"No key has been generated for {domain} yet.")
+            raise ToolRefused(
+                f"No key has been generated for {domain} yet, so there is nothing for "
+                "the authorisation to name. Call generate_signing_key for it and draft "
+                "again."
+            )
 
         _, public = self.keys[domain]
         self.pending = self.broker.request_release(
@@ -126,6 +208,7 @@ class Toolbox:
             signer_email=signer_email,
             signer_name=signer_name or _name_from(signer_email),
             diligence=self._diligence(),
+            interpretations=[self.readings[name] for name in FIELDS if name in self.readings],
         )
         return self._sent(signer_email)
 
@@ -194,6 +277,34 @@ def _fingerprint(public_key: bytes) -> str:
 
 
 SCHEMAS: Final = [
+    {
+        "type": "function",
+        "function": {
+            "name": "record_interpretation",
+            "description": (
+                "Record one field read out of the request, quoting the line it came "
+                "from exactly. Required for domain, brand and signer_email before an "
+                "authorisation can be drafted. Give the alternative reading you "
+                "rejected whenever the text supported more than one."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "field_name": {"type": "string", "enum": list(FIELDS)},
+                    "value": {"type": "string"},
+                    "quote": {
+                        "type": "string",
+                        "description": "A line copied from the request, word for word.",
+                    },
+                    "alternative": {
+                        "type": "string",
+                        "description": "Another value the text could have meant, if any.",
+                    },
+                },
+                "required": ["field_name", "value", "quote"],
+            },
+        },
+    },
     {
         "type": "function",
         "function": {

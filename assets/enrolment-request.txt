@@ -1,0 +1,27 @@
+---------- Forwarded message ----------
+From: Priya Raghavan <p.raghavan@northpostfreight.co.uk>
+To: onboarding@signet.example
+Cc: Tomas Weill <t.weill@north-post.dev>
+Subject: FW: RE: Fwd: supplier setup // NORTHPOST FREIGHT SERVICES LTD.
+
+Hi, forwarding the thread below, sorry it is a mess. Marketing owns
+northpostfreight.co.uk and always will, but that box is not where invoicing
+happens and never has been.
+
+> On Tue, 12 Aug, Tomas Weill wrote:
+>
+> Priya, finance side is on north-post.dev, that is the one that has to sign
+> for anything. I have DNS on that one. Sarah in AP keeps sending things to
+> the .co.uk address and they sit there.
+>
+> > Sarah Bell wrote:
+> >
+> > Can we just use northpost.dev? I have seen that on an invoice before.
+> > Whoever owns it should be the one to do this.
+
+Tomas is the one who can sign, his address is above. Trading name on all the
+paperwork is Northpost Freight Services.
+
+This message and any attachments are confidential and intended solely for the
+addressee. If you have received this in error please notify the sender and
+delete it. Northpost Freight Services Ltd is registered in England and Wales.

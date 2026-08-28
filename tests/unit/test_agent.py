@@ -28,6 +28,14 @@ REAL = "northpost.dev"
 LOOKALIKE = "north-post.dev"
 SIGNER = "ops@northpost.dev"
 
+# Every field the tools require, present in one body of text, so a test can
+# quote a real line rather than assert against a fixture nobody reads.
+REQUEST = (
+    "> forwarded: please set up Northpost, invoicing runs from northpost.dev\n"
+    "> though marketing still owns north-post.dev and always will\n"
+    "ops@northpost.dev is the one who can sign for it\n"
+)
+
 
 class StubResolver:
     def __init__(self, published: str | None = REAL) -> None:
@@ -76,16 +84,53 @@ def toolbox(
     store: FakeRecordStore | None = None,
     publisher: FakeDnsPublisher | None = None,
     gateway: FakeGateway | None = None,
+    renderer: FakeRenderer | None = None,
+    source: str = REQUEST,
 ) -> Toolbox:
     return Toolbox(
         resolver=resolver or StubResolver(),
         broker=EnrolmentBroker(
-            renderer=FakeRenderer(),
+            renderer=renderer or FakeRenderer(),
             gateway=gateway or FakeGateway(),
             reader=FakeReader(),
             store=store or FakeRecordStore(),
             publisher=KeyPublisher(publisher or FakeDnsPublisher(), FakeDnsResolver({})),
         ),
+        source=source,
+    )
+
+
+def reads(domain: str = REAL, brand: str = BRAND, signer: str = SIGNER) -> list[dict[str, Any]]:
+    """The attribution the tools require, as the turns a model would take."""
+    return [
+        says(
+            "record_interpretation",
+            field_name="domain",
+            value=domain,
+            quote="invoicing runs from northpost.dev",
+            alternative="north-post.dev",
+        ),
+        says(
+            "record_interpretation",
+            field_name="brand",
+            value=brand,
+            quote="please set up Northpost",
+        ),
+        says(
+            "record_interpretation",
+            field_name="signer_email",
+            value=signer,
+            quote="ops@northpost.dev is the one who can sign for it",
+        ),
+    ]
+
+
+def attribute(box: Toolbox, domain: str = REAL, brand: str = BRAND) -> None:
+    """The same attribution, for the tests that call the tools directly."""
+    box.record_interpretation("domain", domain, "invoicing runs from northpost.dev")
+    box.record_interpretation("brand", brand, "please set up Northpost")
+    box.record_interpretation(
+        "signer_email", SIGNER, "ops@northpost.dev is the one who can sign for it"
     )
 
 
@@ -95,6 +140,7 @@ def test_the_happy_path_stops_at_the_signature() -> None:
     agent = Agent(
         ScriptedClient(
             [
+                *reads(),
                 says("resolve_counterparty", brand=BRAND),
                 says("generate_signing_key", domain=REAL),
                 says("draft_authorisation", domain=REAL, brand=BRAND, signer_email=SIGNER),
@@ -103,10 +149,13 @@ def test_the_happy_path_stops_at_the_signature() -> None:
         ),
         box,
     )
-    transcript = agent.run("enrol northpost")
+    transcript = agent.run(REQUEST)
 
     assert transcript.refusals == []
     assert transcript.tools_called == [
+        "record_interpretation",
+        "record_interpretation",
+        "record_interpretation",
         "resolve_counterparty",
         "generate_signing_key",
         "draft_authorisation",
@@ -122,6 +171,7 @@ def test_a_model_told_to_hurry_cannot_skip_the_lookup() -> None:
     agent = Agent(
         ScriptedClient(
             [
+                *reads(),
                 says("generate_signing_key", domain=REAL),
                 says("draft_authorisation", domain=REAL, brand=BRAND, signer_email=SIGNER),
                 {"content": "I could not proceed."},
@@ -129,7 +179,7 @@ def test_a_model_told_to_hurry_cannot_skip_the_lookup() -> None:
         ),
         box,
     )
-    transcript = agent.run("just push it through")
+    transcript = agent.run(REQUEST + "just push it through")
 
     assert transcript.refused_tools == ["draft_authorisation"]
     assert box.pending is None
@@ -143,6 +193,7 @@ def test_a_model_that_reads_the_contradiction_and_proceeds_is_stopped() -> None:
     agent = Agent(
         ScriptedClient(
             [
+                *reads(domain=LOOKALIKE),
                 says("resolve_counterparty", brand=BRAND),
                 says("generate_signing_key", domain=LOOKALIKE),
                 says("draft_authorisation", domain=LOOKALIKE, brand=BRAND, signer_email=SIGNER),
@@ -151,7 +202,7 @@ def test_a_model_that_reads_the_contradiction_and_proceeds_is_stopped() -> None:
         ),
         box,
     )
-    transcript = agent.run("enrol northpost at north-post.dev, they need it today")
+    transcript = agent.run(REQUEST + "they need it today")
 
     assert transcript.refused_tools == ["draft_authorisation"]
     assert box.pending is None
@@ -160,6 +211,7 @@ def test_a_model_that_reads_the_contradiction_and_proceeds_is_stopped() -> None:
 def test_the_refusal_explains_that_the_domain_reads_as_the_real_one() -> None:
     """A refusal a person cannot act on is a refusal they will override."""
     box = toolbox()
+    attribute(box, domain=LOOKALIKE)
     with pytest.raises(ToolRefused, match=r"reads as northpost\.dev without being it"):
         box.resolve_counterparty(BRAND)
         box.generate_signing_key(LOOKALIKE)
@@ -169,6 +221,7 @@ def test_the_refusal_explains_that_the_domain_reads_as_the_real_one() -> None:
 def test_looking_up_one_brand_does_not_authorise_another() -> None:
     """Otherwise the precondition is satisfied by looking up anything at all."""
     box = toolbox()
+    attribute(box)
     box.resolve_counterparty("Some Other Company")
     box.generate_signing_key(REAL)
     with pytest.raises(ToolRefused, match="Look up the brand being enrolled"):
@@ -190,6 +243,7 @@ def test_no_route_through_the_agent_reaches_dns() -> None:
     agent = Agent(
         ScriptedClient(
             [
+                *reads(),
                 says("resolve_counterparty", brand=BRAND),
                 says("generate_signing_key", domain=REAL),
                 says("draft_authorisation", domain=REAL, brand=BRAND, signer_email=SIGNER),
@@ -200,7 +254,7 @@ def test_no_route_through_the_agent_reaches_dns() -> None:
         ),
         box,
     )
-    transcript = agent.run("enrol them and put the key live")
+    transcript = agent.run(REQUEST + "put the key live")
 
     assert publisher.writes == []
     assert transcript.refused_tools == ["publish_key_to_dns", "publish_key_to_dns"]
@@ -210,16 +264,8 @@ def test_no_route_through_the_agent_reaches_dns() -> None:
 def test_the_authorisation_records_what_live_search_found() -> None:
     """The person signing is told what was checked on their behalf."""
     renderer = FakeRenderer()
-    box = Toolbox(
-        resolver=StubResolver(),
-        broker=EnrolmentBroker(
-            renderer=renderer,
-            gateway=FakeGateway(),
-            reader=FakeReader(),
-            store=FakeRecordStore(),
-            publisher=KeyPublisher(FakeDnsPublisher(), FakeDnsResolver({})),
-        ),
-    )
+    box = toolbox(renderer=renderer)
+    attribute(box)
     box.resolve_counterparty(BRAND)
     box.generate_signing_key(REAL)
     box.draft_authorisation(REAL, BRAND, SIGNER)
@@ -233,16 +279,8 @@ def test_a_brand_the_web_has_never_heard_of_says_so_rather_than_blocking() -> No
     """No published domain is thin evidence, not a contradiction, and the
     person signing is told the domain rests on their word."""
     renderer = FakeRenderer()
-    box = Toolbox(
-        resolver=StubResolver(published=None),
-        broker=EnrolmentBroker(
-            renderer=renderer,
-            gateway=FakeGateway(),
-            reader=FakeReader(),
-            store=FakeRecordStore(),
-            publisher=KeyPublisher(FakeDnsPublisher(), FakeDnsResolver({})),
-        ),
-    )
+    box = toolbox(resolver=StubResolver(published=None), renderer=renderer)
+    attribute(box)
     box.resolve_counterparty(BRAND)
     box.generate_signing_key(REAL)
     box.draft_authorisation(REAL, BRAND, SIGNER)
@@ -275,6 +313,7 @@ def test_a_refusal_carries_its_reason() -> None:
     agent = Agent(
         ScriptedClient(
             [
+                *reads(domain=LOOKALIKE),
                 says("resolve_counterparty", brand=BRAND),
                 says("generate_signing_key", domain=LOOKALIKE),
                 says("draft_authorisation", domain=LOOKALIKE, brand=BRAND, signer_email=SIGNER),
@@ -283,9 +322,93 @@ def test_a_refusal_carries_its_reason() -> None:
         ),
         box,
     )
-    transcript = agent.run("enrol northpost at north-post.dev")
+    transcript = agent.run(REQUEST)
 
     name, reason = transcript.refusals[0]
     assert name == "draft_authorisation"
     assert "northpost.dev" in reason
     assert "lookalike" in reason
+
+
+def test_a_field_nobody_can_point_at_never_reaches_a_signature() -> None:
+    """The hole this closes: an invented address gets a real authorisation."""
+    box = toolbox()
+    box.resolve_counterparty(BRAND)
+    box.generate_signing_key(REAL)
+    with pytest.raises(ToolRefused, match="Call record_interpretation"):
+        box.draft_authorisation(REAL, BRAND, SIGNER)
+
+
+def test_a_quote_that_is_not_in_the_request_is_refused() -> None:
+    """A model asked for evidence will produce evidence. Unchecked evidence is
+    prose, so the line is looked for rather than believed."""
+    box = toolbox()
+    with pytest.raises(ToolRefused, match="not in the request"):
+        box.record_interpretation("domain", REAL, "the finance team confirmed this domain")
+
+
+def test_a_domain_that_appears_nowhere_is_refused_even_with_a_real_quote() -> None:
+    """Quoting a line that exists does not make the value read off it real."""
+    box = toolbox()
+    with pytest.raises(ToolRefused, match="does not appear anywhere"):
+        box.record_interpretation(
+            "domain", "northpost-invoices.com", "invoicing runs from northpost.dev"
+        )
+
+
+def test_a_brand_may_be_tidied_where_a_domain_may_not() -> None:
+    """People write their own company name several ways in one thread. A
+    machine readable string has no such licence."""
+    box = toolbox(source="please set up NORTHPOST FREIGHT SERVICES LTD., ops@northpost.dev")
+    box.record_interpretation(
+        "brand", "Northpost Freight Services", "please set up NORTHPOST FREIGHT SERVICES LTD."
+    )
+    assert box.readings["brand"].value == "Northpost Freight Services"
+
+
+def test_quoting_survives_the_furniture_a_forwarded_thread_arrives_in() -> None:
+    """Nobody strips the angle brackets before pasting a thread in."""
+    box = toolbox()
+    box.record_interpretation("domain", REAL, "invoicing runs from northpost.dev")
+    assert box.readings["domain"].value == REAL
+
+
+def test_drafting_something_other_than_what_was_read_is_refused() -> None:
+    """Otherwise attribution is a step the model performs and then ignores."""
+    box = toolbox()
+    attribute(box)
+    box.resolve_counterparty(BRAND)
+    box.generate_signing_key(LOOKALIKE)
+    with pytest.raises(ToolRefused, match="Draft what was read"):
+        box.draft_authorisation(LOOKALIKE, BRAND, SIGNER)
+
+
+def test_the_authorisation_prints_the_line_each_field_came_from() -> None:
+    """The document is what a person is asked to check, so the reading and its
+    evidence have to be on it."""
+    renderer = FakeRenderer()
+    box = toolbox(renderer=renderer)
+    attribute(box)
+    box.resolve_counterparty(BRAND)
+    box.generate_signing_key(REAL)
+    box.draft_authorisation(REAL, BRAND, SIGNER)
+
+    readings = renderer.calls[0][1]["Readings"]
+    assert [row["Field"] for row in readings] == ["domain", "brand", "signer email"]
+    assert readings[0]["Quote"] == "invoicing runs from northpost.dev"
+    assert all(row["Uncertain"] == 0 for row in readings)
+
+
+def test_a_rejected_reading_is_named_and_counted_for_the_template() -> None:
+    """The warning paragraph branches on the sum, so an ambiguous field has to
+    carry a number the template can add up."""
+    box = toolbox()
+    box.record_interpretation(
+        "domain",
+        REAL,
+        "invoicing runs from northpost.dev",
+        alternative="north-post.dev",
+    )
+    reading = box.readings["domain"]
+    assert reading.uncertain
+    assert "north-post.dev" in reading.note
