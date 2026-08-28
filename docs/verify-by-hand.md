@@ -12,15 +12,20 @@ from coreutils. macOS does not ship one, so the `python3` line below stands in.
 
 ## What you are checking
 
-A Signet document prints two things under PROOF OF ORIGIN: the locator, which
-says where the key lives, and the mark, which is the payload and the signature
-separated by a pipe.
+A Signet document prints the locator under PROOF OF ORIGIN, which says where the
+key lives, and carries the mark in the code beside it. The mark is the payload
+and the signature separated by a pipe. Scan the code with any phone or QR reader
+to get it:
 
 ```
 S1|amt=15580.00;bic=NWBKGB2L;cls=invoice;cur=USD;iban=GB29NWBK60161331926819;id=INV-2026-0611;iss=northpost.dev;ts=2026-08-27T07:34:38+00:00|T2DLIRTAHQI34RWHKYFXYU6L4WOUF45QY3GO7KXNG5QRGOJSYDQS5Z7FB3NNRABXS5GDQLVK3X4KHEYB2YPEEJIFA4T6T3TZWJ5Z2CA
 ```
 
-The same string is in the QR code, so you can read it off the page or scan it.
+The mark is in the code rather than in the body text on purpose. Printing the
+signed fields in words puts `iban=` and `amt=` on the page in a form a document
+reader takes for page data, and a document that prints the answer to the
+question being asked about it can be doctored and still agree with itself.
+
 `iss` names the domain that signed. The fields between the pipes are the ones
 that decide where money goes, and the signature covers exactly those bytes.
 

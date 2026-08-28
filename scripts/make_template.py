@@ -122,13 +122,21 @@ def build() -> None:
     )
     line(document, '</mdoc:paragraph name="large">', space_after=14)
 
+    # The signature travels in the code, not as body text. Printing the signed
+    # fields in words put iban= and amt= on the page in a form an extractor
+    # reads as page data, and a document that prints the answer to the question
+    # being asked about it can agree with itself while the payment block says
+    # something else. Measured: a doctored invoice came back certified because
+    # extraction took the account number off the printed mark instead of the
+    # PAY TO block. Scanning the code gives the same string to anyone who wants
+    # to check it by hand.
     line(document, "PROOF OF ORIGIN", size=9, bold=True, space_after=4)
     line(document, "Verify at {!Invoice.SignetLocator}", size=9, space_after=2)
-    line(document, "{!Invoice.SignetMark}", size=6, mono=True, space_after=2)
     line(
         document,
-        "The key is published at _signet.{!Invoice.PayeeDomain}. Check it with dig and "
-        "openssl, without an account here.",
+        "Scan the code for the signature. The key is published at "
+        "_signet.{!Invoice.PayeeDomain}. Check it with dig and openssl, without an "
+        "account here.",
         size=8,
         space_after=26,
     )
