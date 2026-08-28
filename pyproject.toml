@@ -22,7 +22,6 @@ dependencies = [
     "cryptography>=44.0",
     "httpx>=0.28",
     "mcp>=2.1.1",
-    "opencv-python-headless>=5.0.0.93",
     "pillow>=12.3.0",
     "pypdfium2>=5.13.0",
     "python-multipart>=0.0.32",
@@ -35,6 +34,12 @@ dependencies = [
 
 [project.scripts]
 signet = "signet.cli:main"
+
+[project.optional-dependencies]
+# A third QR decoder, for anyone who wants it. Measured worse than zxing on our
+# own marks and larger than the entire rest of the runtime, so it is not a
+# dependency of the thing we deploy.
+opencv = ["opencv-python-headless>=4.10"]
 
 [build-system]
 requires = ["hatchling"]
@@ -84,6 +89,12 @@ files = ["src"]
 # untyped dependency cannot quietly widen into untyped code of our own.
 [[tool.mypy.overrides]]
 module = ["pypdfium2"]
+ignore_missing_imports = true
+
+# The optional third decoder and what it needs. Neither is installed in the
+# deployed runtime, so mypy cannot see them and should not try.
+[[tool.mypy.overrides]]
+module = ["cv2", "numpy"]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]

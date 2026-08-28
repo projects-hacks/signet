@@ -1731,7 +1731,6 @@ dependencies = [
     { name = "cryptography" },
     { name = "httpx" },
     { name = "mcp" },
-    { name = "opencv-python-headless" },
     { name = "pillow" },
     { name = "pypdfium2" },
     { name = "python-multipart" },
@@ -1740,6 +1739,11 @@ dependencies = [
     { name = "starlette" },
     { name = "uvicorn", extra = ["standard"] },
     { name = "zxing-cpp" },
+]
+
+[package.optional-dependencies]
+opencv = [
+    { name = "opencv-python-headless" },
 ]
 
 [package.dev-dependencies]
@@ -1760,7 +1764,7 @@ requires-dist = [
     { name = "cryptography", specifier = ">=44.0" },
     { name = "httpx", specifier = ">=0.28" },
     { name = "mcp", specifier = ">=2.1.1" },
-    { name = "opencv-python-headless", specifier = ">=5.0.0.93" },
+    { name = "opencv-python-headless", marker = "extra == 'opencv'", specifier = ">=4.10" },
     { name = "pillow", specifier = ">=12.3.0" },
     { name = "pypdfium2", specifier = ">=5.13.0" },
     { name = "python-multipart", specifier = ">=0.0.32" },
@@ -1770,6 +1774,7 @@ requires-dist = [
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.52.4" },
     { name = "zxing-cpp", specifier = ">=3.1.1" },
 ]
+provides-extras = ["opencv"]
 
 [package.metadata.requires-dev]
 dev = [

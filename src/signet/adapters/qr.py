@@ -20,8 +20,6 @@ import contextlib
 import io
 from typing import Any, Final, Protocol
 
-import cv2
-import numpy as np
 import qrcode
 from qrcode.constants import ERROR_CORRECT_Q
 from qrcode.image.pil import PilImage
@@ -119,11 +117,25 @@ class ZxingDecoder:
 
 
 class OpenCvDecoder:
-    """Always available, but see the module docstring before relying on it."""
+    """A last resort, and optional.
+
+    It was the only decoder here originally and it is the reason marks read as
+    absent when they were plainly present: its detector fails on the versions
+    this payload needs. Measured across the demo documents it reads the clean
+    renders and fails on the photographed one, which is the case that matters,
+    while zxing reads all four.
+
+    So it is no longer a dependency. It weighs a hundred and twenty megabytes,
+    more than the rest of the runtime put together, and it is kept only as a
+    third opinion where somebody already has it installed.
+    """
 
     name = "opencv"
 
     def __init__(self) -> None:
+        import cv2
+
+        self._cv2 = cv2
         self._detector = cv2.QRCodeDetector()
 
     def decode(self, content: bytes) -> tuple[str, ...]:
@@ -138,7 +150,11 @@ class OpenCvDecoder:
         return (single,) if single else ()
 
     def _image(self, content: bytes) -> Any:
-        image = cv2.imdecode(np.frombuffer(content, dtype=np.uint8), cv2.IMREAD_GRAYSCALE)
+        import numpy as np
+
+        image = self._cv2.imdecode(
+            np.frombuffer(content, dtype=np.uint8), self._cv2.IMREAD_GRAYSCALE
+        )
         if image is None:
             raise AdapterError("could not decode the image")
         return image
@@ -151,7 +167,13 @@ def available_decoders() -> tuple[Decoder, ...]:
         decoders.append(ZbarDecoder())
     with contextlib.suppress(ImportError, OSError):
         decoders.append(ZxingDecoder())
-    decoders.append(OpenCvDecoder())
+    with contextlib.suppress(ImportError, OSError):
+        decoders.append(OpenCvDecoder())
+    if not decoders:
+        raise AdapterError(
+            "No QR decoder is installed. Install zxing-cpp, which is the one this "
+            "was measured against and ships as a wheel."
+        )
     return tuple(decoders)
 
 

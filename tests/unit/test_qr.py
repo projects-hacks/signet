@@ -12,7 +12,7 @@ import pytest
 from signet.adapters.qr import (
     IMAGE_TYPES,
     ImageMarkReader,
-    OpenCvDecoder,
+    ZxingDecoder,
     available_decoders,
     render_mark,
 )
@@ -55,9 +55,12 @@ def test_every_image_type_is_attempted() -> None:
 
 
 def test_the_reader_reports_which_decoders_it_has() -> None:
+    """zxing is the one this was measured against and the only one required.
+    zbar needs a system library and opencv is an optional extra, so neither is
+    asserted here."""
     names = ImageMarkReader().decoder_names
     assert names
-    assert "opencv" in names
+    assert "zxing" in names
 
 
 def test_at_least_one_decoder_is_always_available() -> None:
@@ -71,5 +74,5 @@ def test_a_decoder_that_finds_nothing_falls_through_to_the_next() -> None:
         def decode(self, content: bytes) -> tuple[str, ...]:
             return ()
 
-    reader = ImageMarkReader(decoders=(Blind(), OpenCvDecoder()))
+    reader = ImageMarkReader(decoders=(Blind(), ZxingDecoder()))
     assert reader.read_marks(render_mark("S1|short|AAAA"), "image/png") == ("S1|short|AAAA",)
