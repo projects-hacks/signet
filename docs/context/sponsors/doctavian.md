@@ -127,7 +127,30 @@ fields to their document and recipient. They are not system ids.
 Envelopes are created in `Draft`. `GET /signatures/envelope/{id}/send` is what
 notifies anyone, so a malformed envelope never reaches a person.
 
-## Where it stops, on the demo environment
+## Where it stopped, and what it was
+
+Resolved 28 August. Their engineering manager confirmed two things, and only one
+of them was a fault.
+
+**The envelopes were never missing.** A misconfiguration on their side against
+the second user on our account made them unreadable, and both ids below now
+return 200. Envelopes are not automatically deleted.
+
+**Storage consumption on generation is by design.** Templates and data are
+transactional and consumed on each generation, so re-uploading before every
+render is the correct way to use the API rather than a workaround for a defect.
+That is worth knowing, because the error it produces, `FILE_MISSING_FROM_STORAGE`,
+reads like a fault.
+
+One real gap of our own surfaced once their side was fixed:
+`envelope.senderEmail` must be a valid address and we were sending an empty
+string, which returns `SENDER_INVALID_EMAIL_ADDRESS` naming the field. With it
+set, generation, upload, envelope creation and send all succeed.
+
+The account is on `demo.api.doctavian.com` and the existing api key covers
+signatures, so `DOCTAVIAN_SIGNATURES_KEY` stays unset.
+
+## What we saw before it was fixed
 
 With that exact payload, create returns **201 Created** and a full set of system
 ids:
