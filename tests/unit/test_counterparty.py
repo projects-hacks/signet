@@ -140,10 +140,10 @@ def test_the_knowledge_graph_is_preferred_over_the_first_blue_link() -> None:
     assert resolver(handler).resolve_brand("Northpost").canonical_domain == "northpost.dev"
 
 
-def test_a_search_result_is_a_source_and_never_an_answer() -> None:
-    """A first blue link is not an assertion that a brand owns a domain.
-    Searching a small freight company returned a New York town's .gov site, and
-    as a canonical domain that would have failed genuine documents."""
+def test_a_result_not_named_after_the_brand_is_a_source_and_not_an_answer() -> None:
+    """Position on a page is not ownership. Searching a small freight company
+    returned a New York town's .gov site, and taking it as canonical would have
+    failed genuine documents."""
 
     def handler(request: httpx.Request) -> httpx.Response:
         return httpx.Response(
@@ -153,6 +153,41 @@ def test_a_search_result_is_a_source_and_never_an_answer() -> None:
     found = resolver(handler).resolve_brand("Northpost")
     assert found.canonical_domain is None
     assert found.sources == ("https://northportny.gov/about",)
+
+
+def test_a_result_named_after_the_brand_answers() -> None:
+    """Requiring a knowledge graph answered for almost nobody: Google returns
+    none for Maersk. A domain the brand is named after is weaker evidence than
+    an entity record and much stronger than ranking."""
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json={"organic_results": [{"link": "https://www.maersk.com/"}]})
+
+    assert resolver(handler).resolve_brand("Maersk").canonical_domain == "maersk.com"
+
+
+def test_what_a_company_does_is_not_who_it_is() -> None:
+    """The tail of a company name describes the industry and half of it shares
+    that tail, so containment is not enough."""
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200, json={"organic_results": [{"link": "https://freightservices.net"}]}
+        )
+
+    assert resolver(handler).resolve_brand("Northpost Freight Services").canonical_domain is None
+
+
+def test_a_directory_listing_the_brand_is_not_the_brand() -> None:
+    """linkedin.com/company/maersk mentions the brand in its path, and the
+    comparison is on the registrable label only."""
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200, json={"organic_results": [{"link": "https://www.linkedin.com/company/maersk"}]}
+        )
+
+    assert resolver(handler).resolve_brand("Maersk").canonical_domain is None
 
 
 def test_a_repeated_question_costs_nothing() -> None:

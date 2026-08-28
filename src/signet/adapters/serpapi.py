@@ -80,6 +80,27 @@ def registrable(url_or_host: str) -> str | None:
     return _HOST_PREFIX.sub("", host.lower())
 
 
+def _compact(value: str) -> str:
+    return "".join(character for character in value.lower() if character.isalnum())
+
+
+def _named_after(domain: str, brand: str) -> bool:
+    """Whether this domain is plausibly the brand's own.
+
+    Compared on the registrable label only, so a directory listing the brand,
+    linkedin.com/company/maersk, is not mistaken for the brand's own site.
+    """
+    label = _compact(domain.split(".")[0])
+    compacted = _compact(brand)
+    if not label or not compacted:
+        return False
+    # The brand has to start with the domain label, not merely contain it.
+    # Containment accepted freightservices.net for "Northpost Freight Services",
+    # because the tail of a company name is usually what it does rather than who
+    # it is, and half the industry shares it.
+    return compacted.startswith(label)
+
+
 class SerpApiResolver:
     """Implements EntityResolver.
 
@@ -109,17 +130,28 @@ class SerpApiResolver:
             if isinstance(website, str):
                 domain = registrable(website)
                 sources.append(website)
-        # Organic results are recorded but never answer the question. A first
-        # blue link is not an assertion that a brand owns a domain, and treating
-        # it as one is not a theoretical problem: searching a small freight
-        # company returned a New York town's .gov site, which as a canonical
-        # domain would have failed a genuine document and blocked a genuine
-        # enrolment. The knowledge graph is an entity claim; a search result is
-        # a page that mentioned the words.
+        # A search result is a page that mentioned the words, not an assertion
+        # that a brand owns a domain, and taking the first blue link as an
+        # answer is not a theoretical problem: searching a small freight company
+        # returned a New York town's .gov site.
+        #
+        # But refusing organic results entirely was worse. Google returns no
+        # knowledge graph for Maersk, one of the largest shipping companies
+        # alive, so a knowledge graph requirement answers for almost nobody.
+        #
+        # The rule that separates the two cases is that the domain has to be
+        # named after the brand. maersk.com carries "maersk"; northportny.gov
+        # does not carry "northpost". That is a weaker claim than an entity
+        # record and a much stronger one than position on a page, and it is
+        # stated here rather than hidden in a ranking.
         for result in _organic(payload)[:_RESULT_LIMIT]:
             link = result.get("link")
-            if isinstance(link, str):
-                sources.append(link)
+            if not isinstance(link, str):
+                continue
+            sources.append(link)
+            candidate = registrable(link)
+            if domain is None and candidate and _named_after(candidate, brand):
+                domain = candidate
         return BrandResolution(brand=brand, canonical_domain=domain, sources=tuple(sources))
 
     def diligence(self, domain: str, brand: str) -> Diligence:

@@ -146,13 +146,17 @@ def build() -> None:
     line(document, "_" * 46, space_after=10)
 
     line(document, "Signature", size=9, bold=True, space_after=2)
-    line(document, "${signfield:1:y:______________________}", space_after=1, invisible=True)
-    line(document, "_SIGNET_SIGNATURE_ISSUER_HERE_", space_after=1, invisible=True)
+    # Foxit takes explicit pixel dimensions after the field name. Doctavian
+    # takes the anchor's bounding box, so that line is set large: a marker at
+    # body size produces a box too small to sign in, which is what the first
+    # envelope looked like.
+    line(document, "${signfield:1:y:signature_issuer:220:64}", space_after=1, invisible=True)
+    line(document, "_SIGNET_SIGNATURE_ISSUER_HERE_", size=20, space_after=6, invisible=True)
     line(document, "_" * 46, space_after=10)
 
     line(document, "Date", size=9, bold=True, space_after=2)
-    line(document, "${datefield:1:y:Date_Signed:__________}", space_after=1, invisible=True)
-    line(document, "_SIGNET_DATE_ISSUER_HERE_", space_after=1, invisible=True)
+    line(document, "${datefield:1:y:Date_Signed:130:30}", space_after=1, invisible=True)
+    line(document, "_SIGNET_DATE_ISSUER_HERE_", size=13, space_after=2, invisible=True)
     line(document, "_" * 30, space_after=0)
 
     OUT.parent.mkdir(parents=True, exist_ok=True)
