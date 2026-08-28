@@ -4,6 +4,7 @@ import Adjudicate from "./components/Adjudicate.jsx";
 import Copy from "./components/Copy.jsx";
 import Counterparty from "./components/Counterparty.jsx";
 import Notes from "./components/Notes.jsx";
+import Reading from "./components/Reading.jsx";
 import Regions from "./components/Regions.jsx";
 import Stamp from "./components/Stamp.jsx";
 import Working from "./components/Working.jsx";
@@ -239,6 +240,8 @@ export default function App() {
       </section>
 
       {shown && <Notes signals={shown.signals} />}
+
+      {fidelity && <Reading signal={fidelity} />}
 
       {counterparty && <Counterparty signal={counterparty} />}
 
