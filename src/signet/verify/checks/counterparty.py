@@ -20,14 +20,19 @@ evidence rather than proof, and adverse coverage is for a person to read, not fo
 a rule to act on. A check that flagged on a matched keyword would be wrong often
 enough that readers would learn to ignore it.
 
-An enrolled issuer is exempt from the contradiction. Enrolment is a reviewed
-binding of a brand to a domain, and a company whose invoices come from a
-different domain than its marketing site is ordinary. The reviewed record wins
-over the search result.
+An issuer enrolled for this brand is exempt from the contradiction. Enrolment is
+a reviewed binding of a brand to a domain, and a company whose invoices come
+from a different domain than its marketing site is ordinary. The reviewed record
+wins over the search result.
+
+The exemption is on the pair and not on the domain. A domain enrolled for one
+brand earns nothing when it claims to be another, which is exactly the case this
+check exists for.
 """
 
 from __future__ import annotations
 
+from signet.core.brand import same_brand
 from signet.core.verdict import Outcome, Signal
 from signet.ports.intelligence import EntityResolver
 from signet.ports.store import RecordStore
@@ -60,7 +65,14 @@ class CounterpartyCheck:
 
         resolution = self._resolver.resolve_brand(brand)
         published = resolution.canonical_domain
-        enrolled = issuer is not None and issuer.enrolled
+
+        # The exemption is that this domain is enrolled *for this brand*, not
+        # merely that it is enrolled for something. north-post.dev is enrolled
+        # as North Post Holdings, and an invoice from it claiming to be Maersk
+        # was skipping this check entirely on the strength of that unrelated
+        # binding. A reviewed record vouches for the pair, never for the domain
+        # alone.
+        enrolled = issuer is not None and issuer.enrolled and same_brand(issuer.brand, brand)
 
         if published and published != domain and not enrolled:
             return Signal(

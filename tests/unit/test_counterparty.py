@@ -275,3 +275,26 @@ def test_the_cache_holds_what_came_back() -> None:
 
     resolver(handler, store).resolve_brand("Northpost")
     assert json.dumps(next(iter(store.cache.values())))
+
+
+def test_being_enrolled_for_one_brand_does_not_exempt_claiming_another() -> None:
+    """north-post.dev is enrolled as North Post Holdings. An invoice from it
+    claiming to be Maersk was skipping this check entirely, because the
+    exemption tested that the domain was enrolled rather than that it was
+    enrolled for the brand on the paper."""
+    store = FakeRecordStore(
+        {
+            "north-post.dev": Issuer(
+                domain="north-post.dev",
+                brand="North Post Holdings",
+                public_key=b"k",
+                enrolled=True,
+                frozen=False,
+            )
+        }
+    )
+    check = CounterpartyCheck(StubResolver("maersk.com", clean("maersk.com")), store)
+    signal = check.run(context("north-post.dev", brand="Maersk"))
+
+    assert signal.outcome is Outcome.FAIL
+    assert "maersk.com" in signal.detail

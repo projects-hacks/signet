@@ -10,15 +10,12 @@ draw on several sources and escalate to a person. Here it is a registry lookup.
 
 from __future__ import annotations
 
+from signet.core.brand import same_brand
 from signet.core.verdict import Outcome, Signal
 from signet.ports.store import RecordStore
 from signet.verify.context import VerificationContext
 
 NAME = "identity"
-
-
-def _same_brand(left: str, right: str) -> bool:
-    return left.strip().casefold() == right.strip().casefold()
 
 
 class IdentityCheck:
@@ -49,7 +46,7 @@ class IdentityCheck:
                 "registry",
                 {"domain": domain, "enrolledBrand": issuer.brand, "frozen": True},
             )
-        if context.claimed_brand and not _same_brand(issuer.brand, context.claimed_brand):
+        if context.claimed_brand and not same_brand(issuer.brand, context.claimed_brand):
             return Signal(
                 NAME,
                 Outcome.FAIL,

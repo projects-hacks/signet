@@ -24,6 +24,7 @@ the pass rather than the failure.
 
 from __future__ import annotations
 
+from signet.core.brand import same_brand
 from signet.core.lookalike import confusability, is_confusable
 from signet.core.verdict import Outcome, Signal
 from signet.ports.store import RecordStore
@@ -86,9 +87,8 @@ class LookalikeCheck:
         )
 
     def _brand_domain(self, brand: str) -> str | None:
-        wanted = brand.strip().casefold()
         for issuer in self._store.enrolled_issuers():
-            if issuer.brand.strip().casefold() == wanted:
+            if same_brand(issuer.brand, brand):
                 return issuer.domain
         return None
 
