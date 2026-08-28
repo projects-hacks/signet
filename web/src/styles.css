@@ -661,3 +661,60 @@ a.wordmark:hover { color: var(--seal); }
 .counterparty-sources a { color: var(--seal); }
 
 .adverse-note { margin: 0.75rem 0 0; font-size: 0.8125rem; color: var(--muted); max-width: 58ch; }
+
+/* ── what did not decide the verdict ───────────────────────────────
+
+   The headline names one finding because a reader deciding whether to pay
+   needs one sentence. Everything else that had something to say belongs here,
+   directly under it, rather than only in the full list further down. */
+
+.notes {
+  padding: 1.25rem clamp(1rem, 5vw, 3rem) 0;
+  max-width: 62rem;
+}
+
+.notes-list {
+  list-style: none;
+  margin: 0.75rem 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.notes-list li {
+  display: grid;
+  grid-template-columns: 8rem 1fr;
+  gap: 1rem;
+  align-items: baseline;
+  padding-left: 0.9rem;
+  border-left: 2px solid var(--doubt);
+  font-size: 0.9375rem;
+  line-height: 1.5;
+  color: var(--muted);
+}
+
+@media (max-width: 40rem) {
+  .notes-list li { grid-template-columns: 1fr; gap: 0.2rem; }
+}
+
+.notes-name {
+  font-family: var(--body);
+  font-weight: 600;
+  font-size: 0.6875rem;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  color: var(--doubt);
+}
+
+.notes-gap {
+  margin: 1rem 0 0;
+  padding-left: 0.9rem;
+  border-left: 2px solid var(--rule);
+  font-size: 0.9375rem;
+  line-height: 1.5;
+  color: var(--muted);
+  max-width: 62ch;
+}
+
+.notes-gap b { color: var(--ink); font-weight: 600; }

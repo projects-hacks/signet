@@ -3,6 +3,7 @@ import { adjudicate, checkDocument } from "./api.js";
 import Adjudicate from "./components/Adjudicate.jsx";
 import Copy from "./components/Copy.jsx";
 import Counterparty from "./components/Counterparty.jsx";
+import Notes from "./components/Notes.jsx";
 import Regions from "./components/Regions.jsx";
 import Stamp from "./components/Stamp.jsx";
 import Working from "./components/Working.jsx";
@@ -236,6 +237,8 @@ export default function App() {
           )}
         </form>
       </section>
+
+      {shown && <Notes signals={shown.signals} />}
 
       {counterparty && <Counterparty signal={counterparty} />}
 

@@ -214,3 +214,24 @@ def test_a_reading_for_a_field_the_run_never_compared_is_refused(client: TestCli
         json={"runId": decided["runId"], "field": "iban", "reading": "GB29"},
     )
     assert refused.status_code == 409
+
+
+def test_a_check_that_could_not_run_carries_no_evidence(client: TestClient) -> None:
+    """The frontend separates a check that found something advisory from one
+    that could not reach anything, and it does that on the presence of
+    evidence rather than on a fourth outcome. This pins that discriminator."""
+    with client.stream(
+        "POST", "/api/examine", files={"file": ("scan.png", b"not a real image")}
+    ) as response:
+        events = [json.loads(line) for line in response.iter_lines() if line]
+
+    unknown = [
+        event
+        for event in events
+        if event.get("event") == "signal" and event["outcome"] == "unknown"
+    ]
+    assert unknown, "this document should leave several checks unable to answer"
+    for signal in unknown:
+        if signal["detail"].startswith("Could not complete"):
+            assert signal["evidence"] == {}
+            assert signal["source"], "the reason it failed belongs in the source"
