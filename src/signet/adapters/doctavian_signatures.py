@@ -33,8 +33,11 @@ _TIMEOUT_SECONDS: Final = 60.0
 
 # The marker the template prints in the signature block. Distinctive on purpose:
 # an anchor that also occurs in ordinary prose binds the field to the wrong line.
-SIGNATURE_ANCHOR: Final = "_SIG_ISSUER_"
-DATE_ANCHOR: Final = "_DATE_ISSUER_"
+# Long enough to size the field. Doctavian lays the signature box over the
+# bounding box of this text, so a twelve character anchor produces a box too
+# small to sign in.
+SIGNATURE_ANCHOR: Final = "_SIGNET_SIGNATURE_ISSUER_HERE_"
+DATE_ANCHOR: Final = "_SIGNET_DATE_ISSUER_HERE_"
 
 # Their reference ids are integers, locally unique within one envelope, and link
 # fields to their document and recipient. They are not system ids.

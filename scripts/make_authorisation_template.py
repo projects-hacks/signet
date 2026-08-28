@@ -26,7 +26,7 @@ from pathlib import Path
 
 from docx import Document
 from docx.enum.text import WD_ALIGN_PARAGRAPH
-from docx.shared import Pt
+from docx.shared import Pt, RGBColor
 
 OUT = Path("assets/signet-authorisation.docx")
 
@@ -39,6 +39,7 @@ def line(
     bold: bool = False,
     space_after: int = 4,
     mono: bool = False,
+    invisible: bool = False,
 ) -> None:
     paragraph = document.add_paragraph()
     paragraph.alignment = WD_ALIGN_PARAGRAPH.LEFT
@@ -47,6 +48,11 @@ def line(
     run.bold = bold
     run.font.size = Pt(size)
     run.font.name = "Courier New" if mono else "Helvetica"
+    if invisible:
+        # White on white. Both vendors recommend exactly this: their markers
+        # stay in the file where the platform can find them, and the person
+        # being asked to sign never sees the machinery.
+        run.font.color.rgb = RGBColor(0xFF, 0xFF, 0xFF)
 
 
 def build() -> None:
@@ -116,15 +122,38 @@ def build() -> None:
     # and places its field over the bounding box, leaving the text in place.
     # Both are inert marks to the other, so a document carrying both renders
     # correctly whichever gateway sends it.
-    line(document, "SIGNED FOR {!Enrolment.Brand}", size=9, bold=True, space_after=8)
-    line(document, "Name       ${textfield:1:y:Signer_Name:________________}", space_after=6)
-    line(document, "Role       ${textfield:1:y:Signer_Role:________________}", space_after=6)
-    line(document, "Signature  ${signfield:1:y:____________}   _SIG_ISSUER_", space_after=6)
-    line(
-        document,
-        "Date       ${datefield:1:y:Date_Signed:__________}   _DATE_ISSUER_",
-        space_after=0,
-    )
+    # Two signing surfaces on one page, because the human gate is a port with
+    # two implementations and either can be the one that runs. Foxit reads text
+    # tags; Doctavian lays its field over the bounding box of an anchor string.
+    # Each is inert to the other.
+    #
+    # Both are printed white on white, which is what both vendors recommend,
+    # and each sits on its own line under its label. The first version put them
+    # inline, and the signing view showed a person raw ${signfield:1:y} markup
+    # with a field dropped on top of it. A document somebody is being asked to
+    # read and sign cannot look like a bug.
+    #
+    # Anchor length matters: the field is sized from the anchor's bounding box,
+    # so a short anchor gives a signature box too small to sign in.
+    line(document, "SIGNED FOR {!Enrolment.Brand}", size=9, bold=True, space_after=10)
+
+    line(document, "Name", size=9, bold=True, space_after=2)
+    line(document, "${textfield:1:y:Signer_Name:________________}", space_after=1, invisible=True)
+    line(document, "_" * 46, space_after=10)
+
+    line(document, "Role", size=9, bold=True, space_after=2)
+    line(document, "${textfield:1:y:Signer_Role:________________}", space_after=1, invisible=True)
+    line(document, "_" * 46, space_after=10)
+
+    line(document, "Signature", size=9, bold=True, space_after=2)
+    line(document, "${signfield:1:y:______________________}", space_after=1, invisible=True)
+    line(document, "_SIGNET_SIGNATURE_ISSUER_HERE_", space_after=1, invisible=True)
+    line(document, "_" * 46, space_after=10)
+
+    line(document, "Date", size=9, bold=True, space_after=2)
+    line(document, "${datefield:1:y:Date_Signed:__________}", space_after=1, invisible=True)
+    line(document, "_SIGNET_DATE_ISSUER_HERE_", space_after=1, invisible=True)
+    line(document, "_" * 30, space_after=0)
 
     OUT.parent.mkdir(parents=True, exist_ok=True)
     document.save(OUT)
