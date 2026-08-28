@@ -22,18 +22,47 @@ from typing import Final
 
 # Presentation an extractor may legitimately return: an IBAN in groups of four,
 # an amount with thousands separators.
-_SEPARATORS: Final = re.compile(r"[\s,]")
+_SEPARATORS: Final = re.compile(r"[\s\u00a0,]")
+
+# An amount is written differently everywhere: a symbol or a code beside it,
+# groups separated by commas, points or spaces, the decimal marked by a point or
+# a comma. Asserting one convention would send every invoice using another one
+# to a person, so both are accepted.
+#
+# What is asserted is that the separators fall where a number puts them. Reading
+# only the alphabet is not enough: a photograph returned "15.80.00", which is
+# every character an amount may contain and no amount anybody writes, and
+# treating it as one accused an authentic invoice.
+_MONEY_LEADING: Final = re.compile(r"^[\s\u00a0]*(?:[$£€¥₹¢]|[A-Za-z]{3}(?=[\s\u00a0]))[\s\u00a0]*")
+_MONEY_TRAILING: Final = re.compile(
+    r"[\s\u00a0]*(?:[$£€¥₹¢]|(?<=[\s\u00a0])[A-Za-z]{3})[\s\u00a0]*$"
+)
+
+_AMOUNTS: Final = (
+    # Grouped in threes, decimal point last. The comma and point swap for the
+    # convention that writes them the other way round.
+    re.compile(r"^\d{1,3}(?:[,\s\u00a0]\d{3})*(?:\.\d{1,2})?$"),
+    re.compile(r"^\d{1,3}(?:[.\s\u00a0]\d{3})*(?:,\d{1,2})?$"),
+    # Ungrouped.
+    re.compile(r"^\d+(?:[.,]\d{1,2})?$"),
+)
 
 _SHAPES: Final = {
-    "amt": re.compile(r"^\d+(\.\d{1,2})?$"),
     "cur": re.compile(r"^[A-Za-z]{3}$"),
     "iban": re.compile(r"^[A-Za-z]{2}\d{2}[A-Za-z0-9]{10,30}$"),
     "bic": re.compile(r"^[A-Za-z]{4}[A-Za-z]{2}[A-Za-z0-9]{2}([A-Za-z0-9]{3})?$"),
 }
 
 
+def _is_amount(value: str) -> bool:
+    bare = _MONEY_TRAILING.sub("", _MONEY_LEADING.sub("", value.strip()))
+    return any(pattern.fullmatch(bare) for pattern in _AMOUNTS)
+
+
 def well_formed(field: str, value: str) -> bool:
     """Whether this reading could be a real value for this field."""
+    if field == "amt":
+        return _is_amount(value)
     shape = _SHAPES.get(field)
     if shape is None:
         return True

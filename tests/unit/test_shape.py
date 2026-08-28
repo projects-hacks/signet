@@ -16,6 +16,14 @@ from signet.core.shape import well_formed
         ("amt", "15580.00"),
         ("amt", "15,580.00"),
         ("amt", "15 580.00"),
+        # An amount is written differently everywhere, and asserting one
+        # convention would send every invoice using another one to a person.
+        ("amt", "$15,580.00"),
+        ("amt", "USD 15580.00"),
+        ("amt", "15,580.00 USD"),
+        ("amt", "1.234,56"),
+        ("amt", "15580"),
+        ("amt", "1,234,567.89"),
         ("cur", "USD"),
         ("iban", "GB29NWBK60161331926819"),
         ("iban", "GB29 NWBK 6016 1331 9268 19"),
@@ -40,6 +48,15 @@ def test_values_a_page_can_legitimately_carry(field: str, value: str) -> None:
         ("bic", "CORALDETTE33"),
         ("cur", "US"),
         ("amt", ""),
+        # A letter where a digit belongs, which is the whole point of this.
+        ("amt", "O15580.00"),
+        ("amt", "l5580.00"),
+        ("amt", "15,5B0.00"),
+        ("amt", "--"),
+        # Every character an amount may contain, and no amount anybody writes.
+        # Returned by extraction from a photograph of a genuine invoice.
+        ("amt", "15.80.00"),
+        ("amt", "15.5800.00"),
     ],
 )
 def test_values_no_page_can_carry(field: str, value: str) -> None:
