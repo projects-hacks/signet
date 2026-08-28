@@ -109,6 +109,7 @@ body {
 /* A field the extractor read, drawn where it read it. */
 .region {
   position: absolute;
+  border-radius: 2px;
   border: 1.5px solid var(--verify);
   background: color-mix(in srgb, var(--verify) 8%, transparent);
   pointer-events: none;
@@ -125,9 +126,8 @@ body {
 
 .region-tag {
   position: absolute;
-  top: -0.1rem;
-  left: 0;
-  transform: translateY(-100%);
+  top: 50%;
+  transform: translateY(-50%);
   font-family: var(--display);
   font-size: 0.625rem;
   letter-spacing: 0.14em;
@@ -136,6 +136,13 @@ body {
   color: var(--sheet);
   background: var(--verify);
   white-space: nowrap;
+}
+.region[data-side="right"] .region-tag { left: 100%; margin-left: 0.3rem; }
+.region[data-side="above"] .region-tag {
+  left: 0;
+  top: 0;
+  transform: translateY(-100%);
+  margin-top: -0.15rem;
 }
 .region[data-agrees="false"] .region-tag { background: var(--refuse); }
 .region[data-uncertain="true"] .region-tag { background: var(--doubt); }
