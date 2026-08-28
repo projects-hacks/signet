@@ -80,12 +80,32 @@ def test_a_mismatch_on_an_illegible_page_is_a_question_not_an_accusation() -> No
     """Measured against a photographed copy of a genuine invoice: the account
     number came back at 0.40 and, on the same page, an invented bank code at
     0.95. Trusting the second score would have flagged an authentic document."""
-    extractor = FakeDocumentExtractor.reading(iban=("", 0.40), amt=("CORALDETTE33", 0.95))
+    extractor = FakeDocumentExtractor.reading(iban=("", 0.40), amt=("9999.00", 0.95))
     signal = FidelityCheck(extractor).run(context_with_mark())
 
     assert signal.outcome is Outcome.UNKNOWN
     assert "iban" in signal.detail
     assert signal.evidence["apparentMismatch"]["field"] == "amt"
+
+
+def test_a_confident_score_on_an_impossible_value_does_not_accuse_anyone() -> None:
+    """The same photograph returned an amount of 15.s80.00 and scored it 0.95.
+    A letter inside a number is not a 95 percent reading of anything, and the
+    document it came from was authentic."""
+    extractor = FakeDocumentExtractor.reading(amt=("15.s80.00", 0.95))
+    signal = FidelityCheck(extractor).run(context_with_mark())
+
+    assert signal.outcome is Outcome.UNKNOWN
+    assert signal.evidence["malformed"] == ["amt"]
+
+
+def test_presentation_is_not_a_malformed_value() -> None:
+    """An extractor returning grouped digits is reading the page correctly, and
+    a rule that called that illegible would route every clean page to a human."""
+    extractor = FakeDocumentExtractor.reading(
+        amt=("14.75", 0.95), iban=("GB29 NWBK 6016 1331 9268 19", 0.95)
+    )
+    assert FidelityCheck(extractor).run(context_with_mark()).outcome is Outcome.PASS
 
 
 def test_a_mismatch_on_a_page_read_cleanly_is_still_a_finding() -> None:

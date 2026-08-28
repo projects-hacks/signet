@@ -18,6 +18,12 @@ account number at 0.40 confidence and, on the same page, a completely invented
 bank code at 0.95. Trusting the second score would have flagged an authentic
 document, which is the false accusation this whole product exists to avoid.
 
+The score alone does not settle legibility either. The same photograph returned
+an amount of "15.s80.00" and scored it 0.95. A letter inside a number is not a
+95 percent reading of anything, so the shape of a value is checked as well as
+its score, and a value that cannot be what it claims to be counts as doubtful
+however confidently it was offered.
+
 So a discrepancy only counts when the page it was read from was read cleanly. If
 any field on the page was doubtful, the conditions that made it doubtful make
 every reading on that page suspect, and the apparent mismatch is reported as a
@@ -28,6 +34,7 @@ from __future__ import annotations
 
 from typing import Final
 
+from signet.core.shape import well_formed
 from signet.core.verdict import Outcome, Signal
 from signet.errors import AdapterError
 from signet.ports.documents import DocumentExtractor
@@ -67,6 +74,7 @@ class FidelityCheck:
         signed = context.mark.payload.fields
         printed = extraction.by_name()
         uncertain: list[str] = []
+        malformed: list[str] = []
         # Every field compared, kept whether or not it disagreed, because a
         # reader deciding whether to trust the verdict needs to see what was
         # looked at rather than only what was found wanting.
@@ -105,10 +113,17 @@ class FidelityCheck:
             if found.confidence < self._threshold:
                 uncertain.append(field_name)
                 continue
+            if not well_formed(field_name, found.value):
+                # Confidently offered, and not a value this field can hold.
+                uncertain.append(field_name)
+                malformed.append(field_name)
+                continue
             if comparable(found.value) != comparable(expected):
                 mismatched.append((field_name, found.value, expected))
 
         evidence: dict[str, object] = {"threshold": self._threshold, "compared": compared}
+        if malformed:
+            evidence["malformed"] = malformed
 
         # Every field read cleanly, and one of them disagrees. That is a finding.
         if mismatched and not uncertain:
@@ -135,8 +150,8 @@ class FidelityCheck:
                 return Signal(
                     NAME,
                     Outcome.UNKNOWN,
-                    f"Needs a human: {', '.join(uncertain)} could not be read at all, and "
-                    f"{field_name} reads as {printed_value} against a signed "
+                    f"Needs a human: {', '.join(uncertain)} could not be read reliably, "
+                    f"and {field_name} reads as {printed_value} against a signed "
                     f"{expected}. A page this hard to read cannot settle either.",
                     "extraction",
                     evidence,
@@ -144,7 +159,7 @@ class FidelityCheck:
             return Signal(
                 NAME,
                 Outcome.UNKNOWN,
-                f"Needs a human: {', '.join(uncertain)} could not be read confidently.",
+                f"Needs a human: {', '.join(uncertain)} could not be read reliably.",
                 "extraction",
                 evidence,
             )
