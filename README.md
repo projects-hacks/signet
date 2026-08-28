@@ -128,6 +128,8 @@ has the transcripts.
 | [Xano](https://www.xano.com) | issuers, the submissions ledger, the evidence cache and the audit trail |
 
 Built for the [DevNetwork API, Cloud and AI Hackathon 2026](https://api-cloud-ai-hackathon-2026.devpost.com/).
+[docs/xano-build-story.md](docs/xano-build-story.md) covers what this replaces
+and how it was built.
 
 ## Layout
 
