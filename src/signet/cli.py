@@ -23,7 +23,7 @@ from signet.adapters.qr import render_mark
 from signet.adapters.records import record_store
 from signet.adapters.renderers import document_renderer
 from signet.agent.loop import MAX_TURNS
-from signet.config import load_settings
+from signet.config import load_env_file, load_settings
 from signet.constants import DNS_LABEL
 from signet.core.mark import encode_mark, format_locator
 from signet.core.payload import canonicalize
@@ -294,6 +294,10 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main() -> int:
+    # Before anything reads settings. Sourcing the file by hand before every
+    # command is a step people forget, and the error it produces blames the
+    # configuration rather than the missing step.
+    load_env_file()
     args = build_parser().parse_args()
     try:
         result: int = args.handler(args)

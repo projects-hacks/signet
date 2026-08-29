@@ -29,6 +29,8 @@ DEFAULT_RESOLVERS: Final = (
 
 _PLACEHOLDER: Final = "replace-me"
 
+ENV_FILE: Final = ".env"
+
 
 @dataclass(frozen=True, slots=True)
 class Credentials:
@@ -151,6 +153,48 @@ def _templates(raw: str) -> Mapping[str, Template]:
             path=Path(path.strip()), root=root.strip() or "Invoice"
         )
     return parsed
+
+
+def load_env_file(start: Path | None = None) -> Path | None:
+    """Put the values in .env into the environment, and say where it came from.
+
+    Called by entry points, never on import and never by load_settings, because
+    the test suite calls load_settings and must not pick up whatever credentials
+    happen to be on the machine running it. Real environment variables win, so a
+    deployment that sets them is unaffected by a file left in the checkout.
+    """
+    found = _find_env_file(start or Path.cwd())
+    if found is None:
+        return None
+    for line in found.read_text(encoding="utf-8").splitlines():
+        entry = line.strip()
+        if not entry or entry.startswith("#"):
+            continue
+        entry = entry.removeprefix("export ").lstrip()
+        name, separator, value = entry.partition("=")
+        if not separator:
+            continue
+        name = name.strip()
+        if not name or name in os.environ:
+            continue
+        os.environ[name] = _unquoted(value.strip())
+    return found
+
+
+def _unquoted(value: str) -> str:
+    for quote in ('"', "'"):
+        if len(value) >= 2 and value.startswith(quote) and value.endswith(quote):
+            return value[1:-1]
+    return value
+
+
+def _find_env_file(start: Path) -> Path | None:
+    """The nearest .env at or above where the command was run."""
+    for directory in (start, *start.parents):
+        candidate = directory / ENV_FILE
+        if candidate.is_file():
+            return candidate
+    return None
 
 
 def load_settings() -> Settings:
