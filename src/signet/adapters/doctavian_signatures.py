@@ -36,8 +36,15 @@ _TIMEOUT_SECONDS: Final = 60.0
 # Long enough to size the field. Doctavian lays the signature box over the
 # bounding box of this text, so a twelve character anchor produces a box too
 # small to sign in.
-SIGNATURE_ANCHOR: Final = "_SIGNET_SIGNATURE_ISSUER_HERE_"
-DATE_ANCHOR: Final = "_SIGNET_DATE_ISSUER_HERE_"
+# Doctavian sizes its field from the anchor's bounding box, so the anchor is the
+# box: its length sets the width and its point size sets the height. These are
+# short enough that the field lands inside the ruled line it belongs to rather
+# than running past it. scripts/make_authorisation_template.py prints them, and
+# imports these names rather than repeating the strings, because an anchor that
+# drifts from the one being searched for produces an envelope with no field on
+# it and no error to say so.
+SIGNATURE_ANCHOR: Final = "_SIGNET_SIGN_HERE_"
+DATE_ANCHOR: Final = "_SIGNET_DATE_"
 
 # Their reference ids are integers, locally unique within one envelope, and link
 # fields to their document and recipient. They are not system ids.

@@ -28,7 +28,22 @@ from docx import Document
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.shared import Pt, RGBColor
 
+from signet.adapters.doctavian_signatures import DATE_ANCHOR, SIGNATURE_ANCHOR
+
 OUT = Path("assets/signet-authorisation.docx")
+
+# The ruled line a signer writes on, and the field sizes measured against it.
+# Foxit's width and height are pixels, so the 232 point rule is 309 of them.
+RULE_CHARACTERS = 46
+DATE_RULE_CHARACTERS = 30
+SIGN_WIDTH = 310
+SIGN_HEIGHT = 50
+DATE_WIDTH = 200
+DATE_HEIGHT = 34
+# Doctavian's box is the anchor's bounding box, so these point sizes are chosen
+# to land the anchor inside its rule rather than past it. Measured, not guessed.
+ANCHOR_SIZE = 22
+DATE_ANCHOR_SIZE = 16
 
 
 def line(
@@ -182,29 +197,48 @@ def build() -> None:
     #
     # Anchor length matters: the field is sized from the anchor's bounding box,
     # so a short anchor gives a signature box too small to sign in.
+    # The signing block gets its own page. What comes before it is variable
+    # length: the readings section grows with however many fields were read out
+    # of the request, so anywhere else the block lands somewhere different every
+    # time, and it was already splitting across the break with the box on one
+    # page and the line it sits on over the leaf.
+    document.add_page_break()
+
     line(document, "SIGNED FOR {!Enrolment.Brand}", size=9, bold=True, space_after=10)
 
     line(document, "Name", size=9, bold=True, space_after=2)
     line(document, "${textfield:1:y:Signer_Name:________________}", space_after=1, invisible=True)
-    line(document, "_" * 46, space_after=10)
+    line(document, "_" * RULE_CHARACTERS, space_after=10)
 
     line(document, "Role", size=9, bold=True, space_after=2)
     line(document, "${textfield:1:y:Signer_Role:________________}", space_after=1, invisible=True)
-    line(document, "_" * 46, space_after=10)
+    line(document, "_" * RULE_CHARACTERS, space_after=10)
 
+    # Both gateways are sized against the ruled line the field sits on, which
+    # measures 232 points on the rendered page. Foxit takes explicit pixels
+    # after the field name, so the width is that line converted; the first
+    # version asked for 220 by 64, which is narrower than its own rule and half
+    # again as tall as it needs to be. Doctavian takes the anchor's bounding
+    # box, so for that one the anchor's length and point size are the box.
     line(document, "Signature", size=9, bold=True, space_after=2)
-    # Foxit takes explicit pixel dimensions after the field name. Doctavian
-    # takes the anchor's bounding box, so that line is set large: a marker at
-    # body size produces a box too small to sign in, which is what the first
-    # envelope looked like.
-    line(document, "${signfield:1:y:signature_issuer:220:64}", space_after=1, invisible=True)
-    line(document, "_SIGNET_SIGNATURE_ISSUER_HERE_", size=20, space_after=6, invisible=True)
-    line(document, "_" * 46, space_after=10)
+    line(
+        document,
+        f"${{signfield:1:y:signature_issuer:{SIGN_WIDTH}:{SIGN_HEIGHT}}}",
+        space_after=1,
+        invisible=True,
+    )
+    line(document, SIGNATURE_ANCHOR, size=ANCHOR_SIZE, space_after=6, invisible=True)
+    line(document, "_" * RULE_CHARACTERS, space_after=10)
 
     line(document, "Date", size=9, bold=True, space_after=2)
-    line(document, "${datefield:1:y:Date_Signed:130:30}", space_after=1, invisible=True)
-    line(document, "_SIGNET_DATE_ISSUER_HERE_", size=13, space_after=2, invisible=True)
-    line(document, "_" * 30, space_after=0)
+    line(
+        document,
+        f"${{datefield:1:y:Date_Signed:{DATE_WIDTH}:{DATE_HEIGHT}}}",
+        space_after=1,
+        invisible=True,
+    )
+    line(document, DATE_ANCHOR, size=DATE_ANCHOR_SIZE, space_after=2, invisible=True)
+    line(document, "_" * DATE_RULE_CHARACTERS, space_after=0)
 
     OUT.parent.mkdir(parents=True, exist_ok=True)
     document.save(OUT)
