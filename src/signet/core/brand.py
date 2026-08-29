@@ -30,11 +30,73 @@ actually publishes.
 
 from __future__ import annotations
 
+from typing import Final
+
+# The part of a name that says what kind of company it is rather than which one.
+# Present or absent depending on who typed it, and never what anybody searches.
+LEGAL_FORMS: Final = frozenset(
+    {
+        "ltd",
+        "limited",
+        "llc",
+        "llp",
+        "lp",
+        "inc",
+        "incorporated",
+        "corp",
+        "corporation",
+        "co",
+        "company",
+        "plc",
+        "gmbh",
+        "ag",
+        "bv",
+        "nv",
+        "sa",
+        "sas",
+        "srl",
+        "spa",
+        "ab",
+        "oy",
+        "as",
+        "pty",
+        "pte",
+        "kk",
+    }
+)
+
+# Forms written with a stroke, which splits them into single letters that are
+# far too common to strip on their own. Matched as a trailing pair instead.
+LEGAL_PAIRS: Final = frozenset({("a", "s"), ("s", "a"), ("a", "g"), ("k", "k")})
+
 
 def words(name: str) -> tuple[str, ...]:
     """The significant words of a name, lowercased and stripped of punctuation."""
     cleaned = "".join(character if character.isalnum() else " " for character in name.lower())
     return tuple(word for word in cleaned.split() if word)
+
+
+def trading_name(name: str) -> str:
+    """The name with its legal form removed, for asking the world about it.
+
+    Whether somebody writes "Northpost Freight Services" or the same followed by
+    "Ltd" is not a fact about the company, and it must not change what diligence
+    reports. Measured: the two spellings returned a different domain from live
+    search, and the longer one refused an enrolment the shorter one allowed.
+
+    Stripping only ever removes trailing forms, and never the whole name: a
+    company actually called "Company" keeps its name.
+    """
+    parts = list(words(name))
+    while len(parts) > 1:
+        if parts[-1] in LEGAL_FORMS:
+            parts.pop()
+            continue
+        if len(parts) > 2 and (parts[-2], parts[-1]) in LEGAL_PAIRS:
+            del parts[-2:]
+            continue
+        break
+    return " ".join(parts)
 
 
 def same_brand(left: str, right: str) -> bool:

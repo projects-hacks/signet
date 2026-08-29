@@ -33,6 +33,7 @@ from urllib.parse import urlsplit
 import httpx
 
 from signet.adapters import http
+from signet.core.brand import trading_name
 from signet.errors import AdapterError
 from signet.ports.intelligence import BrandResolution, Diligence
 from signet.ports.store import RecordStore
@@ -121,7 +122,9 @@ class SerpApiResolver:
         self._client = client or http.client(_TIMEOUT_SECONDS)
 
     def resolve_brand(self, brand: str) -> BrandResolution:
-        payload = self._search(f"{brand} official website")
+        # Asked about the trading name, so the answer and the cache entry do not
+        # depend on whether whoever typed it included the legal form.
+        payload = self._search(f"{trading_name(brand)} official website")
         graph = payload.get("knowledge_graph")
         sources: list[str] = []
         domain: str | None = None

@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import pytest
 
-from signet.core.brand import same_brand, words
+from signet.core.brand import same_brand, trading_name, words
 
 
 @pytest.mark.parametrize(
@@ -69,3 +69,30 @@ def test_a_trailing_descriptor_never_becomes_identity() -> None:
 
 def test_punctuation_and_spacing_are_not_the_name() -> None:
     assert words("Kuehne + Nagel, Ltd.") == ("kuehne", "nagel", "ltd")
+
+
+def test_the_legal_form_is_not_part_of_what_the_world_is_asked() -> None:
+    """Measured: the two spellings returned a different domain from live search,
+    and the longer one refused an enrolment the shorter one allowed."""
+    assert trading_name("Northpost Freight Services Ltd") == "northpost freight services"
+    assert trading_name("Northpost Freight Services") == "northpost freight services"
+
+
+@pytest.mark.parametrize(
+    "written",
+    [
+        "Maersk A/S",
+        "Maersk",
+        "MAERSK  Inc.",
+        "Maersk Corporation",
+        "maersk, LLC",
+    ],
+)
+def test_one_company_asks_one_question(written: str) -> None:
+    assert trading_name(written) == "maersk"
+
+
+def test_a_name_is_never_stripped_to_nothing() -> None:
+    """A company actually called Company keeps its name."""
+    assert trading_name("Company") == "company"
+    assert trading_name("Ltd") == "ltd"
