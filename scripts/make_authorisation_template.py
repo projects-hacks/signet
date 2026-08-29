@@ -36,10 +36,18 @@ OUT = Path("assets/signet-authorisation.docx")
 # Foxit's width and height are pixels, so the 232 point rule is 309 of them.
 RULE_CHARACTERS = 46
 DATE_RULE_CHARACTERS = 30
-SIGN_WIDTH = 310
-SIGN_HEIGHT = 50
-DATE_WIDTH = 200
-DATE_HEIGHT = 34
+
+# Foxit sizes a field from its tag. The documented default is that the field
+# takes the tag's own dimensions, with width written as underscores; the
+# explicit pixel override is documented too and did not behave as documented.
+# Asked for 310 by 50, it returned a box that started on top of its own
+# Signature label and grew down far enough to swallow the Date label and the
+# date field under it. The Name and Role fields on the same page, written with
+# underscores, came out correct, so this uses the form that works. One
+# underscore is about eleven points, measured off the returned envelope.
+SIGN_UNDERSCORES = 21
+DATE_UNDERSCORES = 14
+
 # Doctavian's box is the anchor's bounding box, so these point sizes are chosen
 # to land the anchor inside its rule rather than past it. Measured, not guessed.
 ANCHOR_SIZE = 22
@@ -214,31 +222,33 @@ def build() -> None:
     line(document, "${textfield:1:y:Signer_Role:________________}", space_after=1, invisible=True)
     line(document, "_" * RULE_CHARACTERS, space_after=10)
 
-    # Both gateways are sized against the ruled line the field sits on, which
-    # measures 232 points on the rendered page. Foxit takes explicit pixels
-    # after the field name, so the width is that line converted; the first
-    # version asked for 220 by 64, which is narrower than its own rule and half
-    # again as tall as it needs to be. Doctavian takes the anchor's bounding
-    # box, so for that one the anchor's length and point size are the box.
-    line(document, "Signature", size=9, bold=True, space_after=2)
+    # Date before signature, and the signature last on the page. A signature
+    # field is the one whose height the gateway decides rather than us: Foxit
+    # returned one several times the height it was asked for. Last on the page
+    # it has nothing beneath it to land on, so however tall it comes back, it
+    # collides with nothing. Ordering the form around that is cheaper than
+    # trying to predict the height.
+    line(document, "Date", size=9, bold=True, space_after=6)
     line(
         document,
-        f"${{signfield:1:y:signature_issuer:{SIGN_WIDTH}:{SIGN_HEIGHT}}}",
-        space_after=1,
-        invisible=True,
-    )
-    line(document, SIGNATURE_ANCHOR, size=ANCHOR_SIZE, space_after=6, invisible=True)
-    line(document, "_" * RULE_CHARACTERS, space_after=10)
-
-    line(document, "Date", size=9, bold=True, space_after=2)
-    line(
-        document,
-        f"${{datefield:1:y:Date_Signed:{DATE_WIDTH}:{DATE_HEIGHT}}}",
+        f"${{datefield:1:y:Date_Signed:{'_' * DATE_UNDERSCORES}}}",
         space_after=1,
         invisible=True,
     )
     line(document, DATE_ANCHOR, size=DATE_ANCHOR_SIZE, space_after=2, invisible=True)
-    line(document, "_" * DATE_RULE_CHARACTERS, space_after=0)
+    line(document, "_" * DATE_RULE_CHARACTERS, space_after=16)
+
+    # The label carries its own gap, because the box was starting above the tag
+    # and printing over the word it belongs to.
+    line(document, "Signature", size=9, bold=True, space_after=10)
+    line(
+        document,
+        f"${{signfield:1:y:signature_issuer:{'_' * SIGN_UNDERSCORES}}}",
+        space_after=1,
+        invisible=True,
+    )
+    line(document, SIGNATURE_ANCHOR, size=ANCHOR_SIZE, space_after=6, invisible=True)
+    line(document, "_" * RULE_CHARACTERS, space_after=0)
 
     OUT.parent.mkdir(parents=True, exist_ok=True)
     document.save(OUT)
