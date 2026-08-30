@@ -102,3 +102,54 @@ def test_the_signature_still_verifies_without_the_store(outage: Decision) -> Non
 def test_an_unwritable_audit_trail_does_not_fail_the_run(outage: Decision) -> None:
     """A verdict that depends on logging is one that vanishes when logging does."""
     assert outage.signals
+
+
+class ExtractorDown:
+    def extract(self, content: bytes, media_type: str) -> object:
+        raise AdapterError("Nutrient is unreachable.")
+
+
+def run_with(store: FakeRecordStore, extractor: object | None) -> Decision:
+    private, public = generate_key()
+    resolver = FakeDnsResolver({f"{DNS_LABEL}.{DOMAIN}": (encode_public_key(public),)})
+    store.issuers = {
+        DOMAIN: Issuer(domain=DOMAIN, brand=BRAND, public_key=public, enrolled=True, frozen=False)
+    }
+    payload = canonicalize(FIELDS)
+    mark_text = encode_mark(payload, Ed25519Signer(private).sign(payload))
+    pipeline = VerificationPipeline(
+        checks=default_checks(resolver, store, FakeRegistrationData(), TODAY, extractor=extractor),
+        store=store,
+    )
+    return pipeline.run(
+        VerificationRequest(
+            run_id="spend",
+            content=b"a photograph of a receipt",
+            media_type="image/png",
+            submitted_by="tester",
+            mark_text=mark_text,
+            claimed_brand=BRAND,
+        )
+    )
+
+
+def test_an_outage_does_not_spend_the_document() -> None:
+    """The ledger write is permanent and this run never reached a verdict a
+    person could act on. Spending the document here turns the retry into a
+    false accusation: the document comes back and is told it was already
+    submitted. An outage must cost a retry, never the document."""
+    store = FakeRecordStore({})
+    first = run_with(store, extractor=ExtractorDown())
+    assert outcome_of(first, "fidelity") is Outcome.UNKNOWN
+    assert outcome_of(first, "duplicate") is Outcome.UNKNOWN
+    assert store.submissions == set()
+
+    healed = run_with(store, extractor=None)
+    assert outcome_of(healed, "duplicate") is Outcome.PASS
+    assert healed.verdict is Verdict.CERTIFIED
+
+
+def test_a_healthy_run_still_spends_exactly_once() -> None:
+    store = FakeRecordStore({})
+    assert outcome_of(run_with(store, extractor=None), "duplicate") is Outcome.PASS
+    assert outcome_of(run_with(store, extractor=None), "duplicate") is Outcome.FAIL

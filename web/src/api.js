@@ -63,11 +63,22 @@ export async function checkDocument(file, brand, onEvent, signal) {
    server side from its id, so the only thing sent is one reading of one
    field. */
 export async function adjudicate(runId, field, reading) {
-  const response = await fetch(`${BASE}/api/adjudicate`, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ runId, field, reading }),
-  });
+  let response;
+  try {
+    response = await fetch(`${BASE}/api/adjudicate`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ runId, field, reading }),
+    });
+  } catch {
+    throw new Error("The verifier could not be reached, so the reading was not applied.");
+  }
+  // The same static-hosting trap checkDocument guards against: an unknown path
+  // answered with the homepage is HTML with a 200, and parsing it as JSON
+  // surfaces browser jargon instead of a sentence.
+  if (!(response.headers.get("content-type") ?? "").includes("application/json")) {
+    throw new Error("This page is not connected to a verifier, so the reading was not applied.");
+  }
   const payload = await response.json();
   if (!response.ok) throw new Error(payload.error ?? "That reading could not be applied.");
   return payload;

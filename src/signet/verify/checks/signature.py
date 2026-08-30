@@ -76,10 +76,14 @@ class SignatureCheck:
         )
         seen = {**seen, "keysPublished": len(keys), "verified": verified}
         if not verified:
+            # Stated as what was observed. The same branch fires for a payload
+            # altered after issue, a mark fabricated wholesale, and a key the
+            # issuer has since rotated out of DNS, and the check cannot tell
+            # which happened.
             return Signal(
                 NAME,
                 Outcome.FAIL,
-                "This document was altered after it was issued.",
+                f"The signature does not match the key {issuer} publishes.",
                 name,
                 seen,
             )

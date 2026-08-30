@@ -76,3 +76,29 @@ def test_a_decoder_that_finds_nothing_falls_through_to_the_next() -> None:
 
     reader = ImageMarkReader(decoders=(Blind(), ZxingDecoder()))
     assert reader.read_marks(render_mark("S1|short|AAAA"), "image/png") == ("S1|short|AAAA",)
+
+
+def test_a_pdf_page_is_rasterised_and_its_mark_read() -> None:
+    """Every entry point accepts PDFs, so refusing to look at them told the
+    reader 'this document carries no mark' about pages nobody had examined."""
+    from io import BytesIO
+
+    from PIL import Image
+
+    from signet.adapters.qr import ImageMarkReader, render_mark
+
+    mark = "S1|amt=1.00;iss=example.com|" + "A" * 100
+    code = Image.open(BytesIO(render_mark(mark))).convert("RGB")
+    page = Image.new("RGB", (code.width + 400, code.height + 600), "white")
+    page.paste(code, (200, 200))
+    pdf = BytesIO()
+    page.save(pdf, format="PDF")
+
+    found = ImageMarkReader().read_marks(pdf.getvalue(), "application/pdf")
+    assert mark in found
+
+
+def test_a_broken_pdf_reads_as_markless_rather_than_crashing() -> None:
+    from signet.adapters.qr import ImageMarkReader
+
+    assert ImageMarkReader().read_marks(b"%PDF-not really", "application/pdf") == ()

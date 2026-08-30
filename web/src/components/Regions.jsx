@@ -4,11 +4,14 @@
  *  something: a lone red box could be anything, a red box among green ones is
  *  a discrepancy. Boxes arrive as percentages of the page, so they scale with
  *  whatever width the sheet ends up at. */
-export default function Regions({ compared, threshold }) {
+import { fieldLabel, uncertainFields } from "../labels.js";
+
+export default function Regions({ compared, fidelity }) {
+  const doubted = uncertainFields(fidelity);
   return compared
     .filter((field) => field.box)
     .map((field) => {
-      const uncertain = field.confidence < threshold;
+      const uncertain = doubted.has(field.field);
       // A label to the right of a value near the right margin would hang off
       // the sheet, so those flip to the other side.
       // A value normally has whitespace after it, so the label goes there. Near
@@ -32,7 +35,7 @@ export default function Regions({ compared, threshold }) {
             height: `${(field.box.height + pad * 2) * 100}%`,
           }}
         >
-          <span className="region-tag">{field.field}</span>
+          <span className="region-tag">{fieldLabel(field.field)}</span>
         </div>
       );
     });

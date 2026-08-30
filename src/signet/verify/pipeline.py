@@ -14,6 +14,7 @@ from __future__ import annotations
 
 from collections.abc import Iterator, Mapping, Sequence
 from dataclasses import dataclass
+from typing import Final
 
 from signet.core.mark import Mark, decode_mark
 from signet.core.verdict import Decision, Outcome, Signal, decide
@@ -21,6 +22,7 @@ from signet.errors import AdapterError, MarkError, SignetError
 from signet.ports.documents import MarkReader
 from signet.ports.store import RecordStore
 from signet.verify.checks import Check
+from signet.verify.checks.duplicate import NAME as DUPLICATE
 from signet.verify.context import VerificationContext
 
 
@@ -85,7 +87,22 @@ class VerificationPipeline:
         self._audit(request.run_id, "started", {"marked": mark is not None})
         signals: list[Signal] = []
         for check in self._checks:
-            signal = self._signal_from(check, context)
+            if check.name == DUPLICATE and not _spendable(signals, marked=mark is not None):
+                # Recording a submission is the one write in the pipeline, and
+                # it is permanent. A run in which a deciding check could not
+                # reach its source ends unsigned, and spending the document on
+                # that run turns the retry into a false accusation: the
+                # document comes back and is told it was already submitted.
+                # An outage must cost a retry, never the document.
+                signal = Signal(
+                    DUPLICATE,
+                    Outcome.UNKNOWN,
+                    "Not recorded: a deciding check could not reach its source, "
+                    "so this run does not use up the document.",
+                    "ledger",
+                )
+            else:
+                signal = self._signal_from(check, context)
             signals.append(signal)
             yield signal
 
@@ -154,3 +171,34 @@ class VerificationPipeline:
             except MarkError:
                 continue
         return None
+
+
+# The checks whose failure or absence decides a verdict. An advisory check
+# being unreachable does not hold the ledger back.
+_DECIDING: Final = ("signature", "identity", "fidelity")
+
+
+def _unreachable(signal: Signal) -> bool:
+    """Whether a check reported that it could not reach its source.
+
+    Two shapes mean unreachable: no evidence at all, which is how the pipeline
+    wraps a raised adapter error and how extraction reports being down, and
+    evidence explicitly recording that the lookup never landed. An unknown that
+    carries findings, like a page put to a person, reached its source fine.
+    """
+    if signal.outcome is not Outcome.UNKNOWN:
+        return False
+    return not signal.evidence or signal.evidence.get("reached") is False
+
+
+def _spendable(signals: Sequence[Signal], marked: bool) -> bool:
+    """Whether this run may permanently record the submission.
+
+    An unmarked document depends on no vendor, so it always records. A marked
+    one holds back when a deciding check could not reach its source, because
+    that run ends unsigned and spending the document on it turns the retry
+    into a false accusation.
+    """
+    if not marked:
+        return True
+    return not any(signal.name in _DECIDING and _unreachable(signal) for signal in signals)

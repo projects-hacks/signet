@@ -188,10 +188,22 @@ class ImageMarkReader:
         return tuple(decoder.name for decoder in self._decoders)
 
     def read_marks(self, content: bytes, media_type: str) -> tuple[str, ...]:
-        if media_type not in IMAGE_TYPES:
-            # PDFs and Office files arrive as documents whose pages we have not
-            # rasterised. Nothing to read, and that is not an error: the caller
-            # falls through to the corroboration path.
+        if media_type == "application/pdf":
+            # The first page, rasterised the same way the issuing path
+            # rasterises it. Refusing PDFs while every entry point accepts
+            # them told the reader "this document carries no mark" about
+            # documents nobody had looked at. Imported here because page.py
+            # imports render_mark from this module.
+            from signet.adapters.page import rasterise
+
+            try:
+                content = rasterise(content)
+            except AdapterError:
+                return ()
+        elif media_type not in IMAGE_TYPES:
+            # Office files and the like: pages we cannot rasterise. Nothing to
+            # read, and that is not an error: the caller falls through to the
+            # corroboration path.
             return ()
         for decoder in self._decoders:
             found = decoder.decode(content)

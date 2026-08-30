@@ -30,6 +30,7 @@ from signet.adapters.local_store import DEFAULT_PATH
 from signet.adapters.records import record_store
 from signet.adapters.samples import SampleError, SampleMinter
 from signet.config import Settings, load_settings
+from signet.core.shape import well_formed
 from signet.core.verdict import Decision, Outcome, Signal, decide
 from signet.errors import SignetError
 from signet.verify.adjudication import NotAdjudicable, apply_reading
@@ -110,6 +111,36 @@ def _decision_json(run_id: str, decision: Decision) -> dict[str, Any]:
     }
 
 
+def _withhold_signed(payload: dict[str, Any]) -> dict[str, Any]:
+    """Strip the signed value from any field a person is about to read.
+
+    Somebody reading a page with the expected answer in front of them is being
+    led, and a reading produced that way is not evidence of anything. The full
+    values stay in the stored run, which is what adjudication re-decides from;
+    only the response a reader sees goes out without them. Once the field is
+    settled it is no longer uncertain, and the next response carries the value.
+    """
+    return {
+        **payload,
+        "signals": [_withhold_from(signal) for signal in payload.get("signals", [])],
+    }
+
+
+def _withhold_from(signal: dict[str, Any]) -> dict[str, Any]:
+    evidence = signal.get("evidence")
+    if not isinstance(evidence, dict):
+        return signal
+    uncertain = set(evidence.get("uncertain", ()))
+    if signal.get("name") != "fidelity" or not uncertain:
+        return signal
+    compared = [
+        {**row, "signed": None} if row.get("field") in uncertain else row
+        for row in evidence.get("compared", ())
+        if isinstance(row, dict)
+    ]
+    return {**signal, "evidence": {**evidence, "compared": compared}}
+
+
 def create_app(
     settings: Settings | None = None,
     store_path: Path = DEFAULT_PATH,
@@ -179,7 +210,9 @@ def create_app(
             # A vendor being down is not a verdict. Saying so beats inventing one.
             return JSONResponse({"error": str(exc)}, status_code=502)
 
-        return JSONResponse(_decision_json(run_id, decision))
+        payload = _decision_json(run_id, decision)
+        store.cache_put(RUN_NAMESPACE, run_id, payload)
+        return JSONResponse(_withhold_signed(payload))
 
     # A page served from static hosting is a different origin from the process
     # that verifies, so the browser asks first. Named origins only, and only the
@@ -226,6 +259,15 @@ def create_app(
             return JSONResponse(
                 {"error": "That examination is no longer on file."}, status_code=404
             )
+        # The whole argument of the shape check is that a value which cannot be
+        # what it claims to be was not read cleanly. That argument does not
+        # stop applying because a person typed it: a slip of the finger is not
+        # a reading either, and comparing it as one manufactures a mismatch.
+        if not well_formed(field, reading):
+            return JSONResponse(
+                {"error": f"{reading!r} cannot be a value for {field}. Check for a typo."},
+                status_code=422,
+            )
 
         try:
             amended = apply_reading(_signals_from(stored), field, reading, by)
@@ -242,7 +284,7 @@ def create_app(
             "adjudicated",
             {"field": field, "reading": reading, "by": by, "verdict": decision.verdict.value},
         )
-        return JSONResponse(payload)
+        return JSONResponse(_withhold_signed(payload))
 
     async def examine(request: Request) -> Response:
         """The same verification, reported as it happens.
@@ -282,9 +324,9 @@ def create_app(
                         # Kept so a person can answer a doubtful reading later
                         # without the document being uploaded again.
                         store.cache_put(RUN_NAMESPACE, run_id, payload)
-                        yield _line({"event": "decided", **payload})
+                        yield _line({"event": "decided", **_withhold_signed(payload)})
                     else:
-                        yield _line({"event": "signal", **_signal_json(step)})
+                        yield _line({"event": "signal", **_withhold_from(_signal_json(step))})
             except SignetError as exc:
                 # A vendor being down is not a verdict. The stream has already
                 # started, so this arrives as a final line rather than a status.

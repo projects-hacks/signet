@@ -86,7 +86,7 @@ def test_an_altered_amount_is_flagged(world) -> None:  # type: ignore[no-untyped
     decision = build(resolver, store, registrations).run(request(tampered))
 
     assert decision.verdict is Verdict.FLAGGED
-    assert "altered" in decision.reason
+    assert "does not match the key" in decision.reason
 
 
 def test_a_forger_signing_at_their_own_domain_is_flagged(world) -> None:  # type: ignore[no-untyped-def]

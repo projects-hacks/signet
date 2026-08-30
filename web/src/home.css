@@ -1,3 +1,5 @@
+:root { color-scheme: light; }
+
 /* Signet, set as an official record rather than a software landing page.
 
    Direction, decided before any of this was written:
@@ -458,7 +460,7 @@ section { padding: clamp(2.75rem, 6vw, 5rem) var(--gutter); scroll-margin-top: 4
 .terminal-body .cmd i { color: #6f9bd6; font-style: normal; }
 .terminal-body .good { color: #5fd6ae; }
 .terminal-body .bad { color: #ea8b83; }
-.terminal-body .note { color: #5a6672; }
+.terminal-body .note { color: #8b98a6; }
 .terminal-body .gap { height: 0.8rem; }
 
 .cursor {

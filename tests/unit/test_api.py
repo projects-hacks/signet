@@ -212,9 +212,25 @@ def test_a_reading_for_a_field_the_run_never_compared_is_refused(client: TestCli
 
     refused = client.post(
         "/api/adjudicate",
-        json={"runId": decided["runId"], "field": "iban", "reading": "GB29"},
+        json={"runId": decided["runId"], "field": "iban", "reading": "GB29NWBK60161331926819"},
     )
     assert refused.status_code == 409
+
+
+def test_a_reading_that_cannot_be_a_value_for_its_field_is_refused(client: TestClient) -> None:
+    """A slip of the finger is not a reading either, and comparing it as one
+    manufactures a mismatch against an honest page."""
+    with client.stream(
+        "POST", "/api/examine", files={"file": ("scan.png", b"not a real image")}
+    ) as response:
+        decided = [json.loads(line) for line in response.iter_lines() if line][-1]
+
+    refused = client.post(
+        "/api/adjudicate",
+        json={"runId": decided["runId"], "field": "amt", "reading": "15.s80.00"},
+    )
+    assert refused.status_code == 422
+    assert "cannot be a value" in refused.json()["error"]
 
 
 def test_a_check_that_could_not_run_carries_no_evidence(client: TestClient) -> None:

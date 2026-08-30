@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { adjudicate, checkDocument, sampleDocument, verifierHealth } from "./api.js";
+import { checkLabel, uncertainFields } from "./labels.js";
 import Adjudicate from "./components/Adjudicate.jsx";
 import Copy from "./components/Copy.jsx";
 import Counterparty from "./components/Counterparty.jsx";
@@ -23,7 +24,9 @@ const SAMPLE_BRAND = "Northpost Freight Services";
 const READING = {
   certified: "Signed by the domain this brand signs from, and the page matches what was signed.",
   flagged: "Something about this document contradicts itself.",
-  unsigned: "No proof available. Nothing here contradicts the document either.",
+  unsigned:
+    "This sender has not published a key, so there is nothing to check against. " +
+    "That is a fact about the sender, not a warning about the document.",
 };
 
 export default function App() {
@@ -42,6 +45,11 @@ export default function App() {
   const [resolving, setResolving] = useState(false);
   const [samples, setSamples] = useState(false);
   const [fetching, setFetching] = useState(null);
+  /* The checks that had answered when a run died, kept so a vendor outage
+     mid-stream shows what did run rather than pretending nothing happened. */
+  const [stopped, setStopped] = useState(null);
+  const [adjudicationError, setAdjudicationError] = useState(null);
+  const [applied, setApplied] = useState(null);
   const picker = useRef(null);
   const running = useRef(null);
 
@@ -63,11 +71,17 @@ export default function App() {
   function take(next) {
     if (!next) return;
     running.current?.abort();
+    // Cleared so picking the same file again fires a change event.
+    if (picker.current) picker.current.value = "";
+    const url = URL.createObjectURL(next);
+    minted.current.push(url);
     setFile(next);
-    setPreview(URL.createObjectURL(next));
+    setPreview(url);
     setResult(null);
     setLive(null);
+    setStopped(null);
     setError(null);
+    setApplied(null);
   }
 
   async function takeSample(kind) {
@@ -91,6 +105,8 @@ export default function App() {
     if (!file || live) return;
     setError(null);
     setResult(null);
+    setStopped(null);
+    setApplied(null);
     const controller = new AbortController();
     running.current = controller;
 
@@ -117,7 +133,13 @@ export default function App() {
         ...past.filter((entry) => entry.id !== decision.runId),
       ]);
     } catch (cause) {
-      if (cause.name !== "AbortError") setError(cause.message);
+      if (cause.name !== "AbortError") {
+        setError(cause.message);
+        setLive((current) => {
+          if (current?.signals.length) setStopped(current.signals);
+          return current;
+        });
+      }
     } finally {
       running.current = null;
       setLive(null);
@@ -131,7 +153,9 @@ export default function App() {
     setBrand(entry.brand);
     setResult(entry.decision);
     setLive(null);
+    setStopped(null);
     setError(null);
+    setApplied(null);
   }
 
   const shown = result;
@@ -141,27 +165,28 @@ export default function App() {
   const issuer = signature?.evidence?.query?.replace(/^_signet\./, "");
   const compared = fidelity?.evidence?.compared ?? [];
   const threshold = fidelity?.evidence?.threshold ?? 0.8;
+  const doubted = uncertainFields(fidelity);
   const doubtful =
     fidelity?.outcome === "unknown"
-      ? compared.filter(
-          (entry) => entry.printed !== null && (entry.confidence ?? 1) < threshold,
-        )
+      ? compared.filter((entry) => entry.printed !== null && doubted.has(entry.field))
       : [];
 
   async function resolve(field, reading) {
     if (!shown) return;
     setResolving(true);
-    setError(null);
+    setAdjudicationError(null);
     try {
       const amended = await adjudicate(shown.runId, field, reading);
       setResult(amended);
+      setApplied({ field, reading });
       setHistory((past) =>
         past.map((entry) =>
           entry.id === amended.runId ? { ...entry, decision: amended } : entry,
         ),
       );
     } catch (cause) {
-      setError(cause.message);
+      // Shown beside the panel that asked, not three screens above it.
+      setAdjudicationError(cause.message);
     } finally {
       setResolving(false);
     }
@@ -181,12 +206,20 @@ export default function App() {
 
       <section className="checking">
         <div className="sheet" data-busy={String(Boolean(live))}>
-          {preview ? (
+          {preview && file?.type === "application/pdf" ? (
+            <div className="sheet-empty">
+              <span className="label">PDF document</span>
+              <p style={{ margin: 0 }} className="mono">
+                {file.name}
+              </p>
+              <p style={{ margin: 0, color: "var(--muted)" }}>
+                The verdict below covers it. The page overlay is drawn for images only.
+              </p>
+            </div>
+          ) : preview ? (
             <>
               <img src={preview} alt="The document being checked" />
-              {shown && (
-                <Regions compared={compared} threshold={fidelity?.evidence?.threshold ?? 0.8} />
-              )}
+              {shown && <Regions compared={compared} fidelity={fidelity} />}
               {shown && <Stamp verdict={shown.verdict} issuer={issuer} />}
             </>
           ) : (
@@ -204,7 +237,12 @@ export default function App() {
             <>
               <p className="label">The result</p>
               <p className="finding-reason">{shown.reason}</p>
-              <p style={{ margin: 0, color: "var(--muted)" }}>{READING[shown.verdict]}</p>
+              <p style={{ margin: 0, color: "var(--muted)" }}>
+                {shown.verdict === "certified" && fidelity?.outcome === "unknown"
+                  ? "Signed by the domain this brand signs from. One reading on the page " +
+                    "could not be settled by the machine, so confirm it below."
+                  : READING[shown.verdict]}
+              </p>
             </>
           ) : live ? (
             <>
@@ -285,7 +323,7 @@ export default function App() {
             <span>{live ? "Checking" : "Check this document"}</span>
             <span className="mono run-note">
               {live
-                ? (live.signals.at(-1)?.name ?? "reading the mark").replace("_", " ")
+                ? checkLabel(live.signals.at(-1)?.name ?? "reading the mark")
                 : "reads the key from public DNS"}
             </span>
           </button>
@@ -305,11 +343,32 @@ export default function App() {
       {counterparty && <Counterparty signal={counterparty} />}
 
       {doubtful.length > 0 && (
-        <Adjudicate fields={doubtful} onResolve={resolve} busy={resolving} />
+        <Adjudicate
+          key={shown?.runId}
+          fields={doubtful}
+          onResolve={resolve}
+          busy={resolving}
+          failure={adjudicationError}
+        />
       )}
 
-      {(shown || live) && (
-        <Working signals={shown?.signals ?? live?.signals ?? []} pending={waiting} />
+      {applied && doubtful.length === 0 && (
+        <section className="adjudicate">
+          <p className="label">Your reading was applied</p>
+          <p className="adjudicate-note">
+            The comparison now uses what you read off the page, and the verdict above
+            follows from it.
+          </p>
+        </section>
+      )}
+
+      {(shown || live || stopped) && (
+        <Working signals={shown?.signals ?? live?.signals ?? stopped ?? []} pending={waiting} />
+      )}
+      {stopped && !shown && !live && (
+        <p className="mono failure" role="alert" style={{ maxWidth: "42rem" }}>
+          The run stopped here. The checks above had already answered.
+        </p>
       )}
 
       {history.length > 1 && (
@@ -325,7 +384,9 @@ export default function App() {
                 >
                   <span className="verdict-dot" data-verdict={entry.decision.verdict} />
                   <span className="mono">{entry.name}</span>
-                  <span className="label">{entry.decision.verdict}</span>
+                  <span className="label" data-verdict={entry.decision.verdict}>
+                    {entry.decision.verdict}
+                  </span>
                 </button>
               </li>
             ))}

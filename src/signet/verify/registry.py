@@ -35,11 +35,13 @@ def default_checks(
         SignatureCheck(resolver),
         IdentityCheck(store),
         LookalikeCheck(store),
-        DuplicateCheck(store),
         DomainAgeCheck(registrations, today),
     ]
     if extractor is not None:
         checks.append(FidelityCheck(extractor))
     if entities is not None:
         checks.append(CounterpartyCheck(entities, store))
+    # Last on purpose: it is the one check that writes, and the pipeline holds
+    # its write back when a deciding check could not reach its source.
+    checks.append(DuplicateCheck(store))
     return tuple(checks)

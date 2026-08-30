@@ -1,5 +1,7 @@
 import { useState } from "react";
 
+import { fieldLabel } from "../labels.js";
+
 /** The question the extractor could not answer, put to a person.
  *
  *  They are shown the field, what the extractor thought it said, how sure it
@@ -9,7 +11,7 @@ import { useState } from "react";
  *  reading a page with the expected answer in front of them is being led, and a
  *  reading produced that way is not evidence of anything. They read the page;
  *  the comparison is ours. */
-export default function Adjudicate({ fields, onResolve, busy }) {
+export default function Adjudicate({ fields, onResolve, busy, failure }) {
   const [readings, setReadings] = useState({});
 
   if (!fields.length) return null;
@@ -36,7 +38,7 @@ export default function Adjudicate({ fields, onResolve, busy }) {
           }}
         >
           <div className="doubtful-head">
-            <span className="check-name">{field.field.replace("_", " ")}</span>
+            <span className="check-name">{fieldLabel(field.field)}</span>
             <span className="mono confidence">
               {Math.round((field.confidence ?? 0) * 100)}% confident
             </span>
@@ -62,6 +64,12 @@ export default function Adjudicate({ fields, onResolve, busy }) {
           </div>
         </form>
       ))}
+
+      {failure && (
+        <p className="mono failure" role="alert">
+          {failure}
+        </p>
+      )}
     </section>
   );
 }

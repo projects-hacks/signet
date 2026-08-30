@@ -7,6 +7,8 @@ const MARK = { pass: "✓", fail: "✕", unknown: "?" };
  *  Prose would be shorter. The point of this product is that you do not have to
  *  believe the sentence, so the query and the answer are the content and the
  *  sentence is the summary. */
+
+import { checkLabel } from "../labels.js";
 function exchange(name, evidence) {
   if (!evidence || Object.keys(evidence).length === 0) return [];
 
@@ -78,6 +80,7 @@ function exchange(name, evidence) {
   return [];
 }
 
+
 export default function Working({ signals, pending = [] }) {
   return (
     <section className="working">
@@ -91,7 +94,7 @@ export default function Working({ signals, pending = [] }) {
             <span className="check-outcome" data-outcome={signal.outcome} aria-label={signal.outcome}>
               {MARK[signal.outcome]}
             </span>
-            <span className="check-name">{signal.name.replace("_", " ")}</span>
+            <span className="check-name">{checkLabel(signal.name)}</span>
             <div className="check-body">
               <p className="check-detail">{signal.detail}</p>
               {rows.length > 0 && (

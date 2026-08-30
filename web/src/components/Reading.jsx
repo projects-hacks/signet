@@ -9,13 +9,16 @@
  *  whole argument of this check is that a machine reading has a measurable
  *  quality and a person should see it before trusting a comparison built on it.
  */
+import { fieldLabel, uncertainFields } from "../labels.js";
+
 export default function Reading({ signal }) {
   const compared = signal?.evidence?.compared;
   if (!Array.isArray(compared) || compared.length === 0) return null;
 
   const threshold = signal.evidence.threshold ?? 0.8;
+  const doubted = uncertainFields(signal);
   const doubtful = compared.filter(
-    (field) => field.printed !== null && (field.confidence ?? 1) < threshold,
+    (field) => field.printed !== null && doubted.has(field.field),
   ).length;
 
   return (
@@ -38,10 +41,14 @@ export default function Reading({ signal }) {
             {compared.map((field) => {
               const confidence = field.confidence ?? null;
               const unread = field.printed === null;
-              const unsure = !unread && confidence !== null && confidence < threshold;
+              const unsure = !unread && doubted.has(field.field);
               return (
-                <tr key={field.field} data-unsure={String(unsure)}>
-                  <td className="reading-field">{field.field.replace("_", " ")}</td>
+                <tr
+                  key={field.field}
+                  data-unsure={String(unsure)}
+                  data-agrees={String(unread || unsure || field.agrees)}
+                >
+                  <td className="reading-field">{fieldLabel(field.field)}</td>
                   <td className="mono">
                     {unread ? <span className="reading-absent">not on the page</span> : field.printed}
                   </td>
@@ -55,7 +62,15 @@ export default function Reading({ signal }) {
                       </span>
                     )}
                   </td>
-                  <td className="mono">{field.signed}</td>
+                  <td className="mono">
+                    {field.signed === null || field.signed === undefined ? (
+                      <span className="reading-absent">
+                        withheld until you read the page
+                      </span>
+                    ) : (
+                      field.signed
+                    )}
+                  </td>
                   <td className="reading-verdict">
                     {unread ? "" : unsure ? "?" : field.agrees ? "✓" : "✕"}
                   </td>
@@ -68,11 +83,11 @@ export default function Reading({ signal }) {
 
       <p className="reading-note">
         {doubtful > 0
-          ? `Below ${Math.round(threshold * 100)}% the reading is not trusted, and ` +
+          ? `A reading below ${Math.round(threshold * 100)}% confidence, or one that cannot ` +
+            `be a real value for its field, is not trusted, and ` +
             `${doubtful === 1 ? "one field is" : `${doubtful} fields are`} put to a person ` +
             "rather than guessed at."
-          : `Every field was read above ${Math.round(threshold * 100)}% confidence, so the ` +
-            "comparison above stands on its own."}
+          : "Every field was read cleanly, so the comparison above stands on its own."}
       </p>
     </section>
   );

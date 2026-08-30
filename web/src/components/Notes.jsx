@@ -12,6 +12,9 @@
  *  ran and found something advisory carries its evidence. A check that could
  *  not reach its evidence carries none, and its source holds the reason. That
  *  discriminator already exists in the data, so no new outcome was needed. */
+
+import { checkLabel } from "../labels.js";
+
 export default function Notes({ signals }) {
   const unknown = signals.filter((signal) => signal.outcome === "unknown");
   const found = unknown.filter((signal) => Object.keys(signal.evidence ?? {}).length > 0);
@@ -29,7 +32,7 @@ export default function Notes({ signals }) {
           <ul className="notes-list">
             {found.map((signal) => (
               <li key={signal.name}>
-                <span className="notes-name">{signal.name.replace("_", " ")}</span>
+                <span className="notes-name">{checkLabel(signal.name)}</span>
                 <span>{signal.detail}</span>
               </li>
             ))}

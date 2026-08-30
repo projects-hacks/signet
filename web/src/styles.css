@@ -1,3 +1,5 @@
+:root { color-scheme: light; }
+
 /* The document check, set in the same hand as the rest of the site.
 
    Stamp ink on a cool near-white. The three semantic colours are the stamp
@@ -599,7 +601,7 @@ a.wordmark:hover { color: var(--seal); }
   cursor: pointer;
 }
 
-.confirm:hover:not(:disabled) { background: var(--verify); border-color: var(--verify); }
+.confirm:hover:not(:disabled) { background: var(--ink); border-color: var(--ink); }
 .confirm:disabled { opacity: 0.55; cursor: default; }
 .confirm:focus-visible { outline: 2px solid var(--verify); outline-offset: 2px; }
 
@@ -859,5 +861,35 @@ tr[data-unsure="true"] .meter b { color: var(--doubt); }
 .sample-fine {
   margin: 0.1rem 0 0;
   font-size: 0.72rem;
+  color: var(--muted);
+}
+
+/* ── audit fixes: agreement colour, scroller, chips, details ── */
+
+/* A disagreement is the finding. It must never wear the success colour. */
+.reading-table tr[data-agrees="false"] td.reading-verdict {
+  color: var(--refuse);
+}
+.reading-table tr[data-agrees="false"] td {
+  background: color-mix(in srgb, var(--refuse) 7%, transparent);
+}
+
+/* The table is wider than a phone. It scrolls inside its own container so the
+   page never scrolls sideways. */
+.scroller {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* The pending marker is a pseudo element, which is inline unless told not
+   to be, and an inline box ignores width. */
+.check-outcome[data-outcome="pending"]::after {
+  display: block;
+}
+
+.history .label[data-verdict="flagged"] {
+  color: var(--refuse);
+}
+.history .label[data-verdict="unsigned"] {
   color: var(--muted);
 }
