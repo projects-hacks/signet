@@ -8,6 +8,7 @@ against a mock transport so they stay offline.
 from __future__ import annotations
 
 from datetime import date
+from pathlib import Path
 from typing import Any
 
 import httpx
@@ -151,3 +152,31 @@ def test_a_malformed_date_is_dropped_rather_than_raising() -> None:
 def test_an_rdap_failure_raises_an_adapter_error() -> None:
     with pytest.raises(AdapterError, match="RDAP lookup"):
         rdap_over({}, status=404).registration("a.com")
+
+
+def test_a_store_that_does_not_exist_yet_knows_the_demo_issuers(tmp_path: Path) -> None:
+    """A fresh clone has no store, and with no enrolled issuers the identity
+    check fails every demo document, which reads as the product being broken
+    rather than the clone being empty."""
+    from signet.adapters.records import record_store
+    from signet.config import load_settings
+
+    store = record_store(load_settings(), tmp_path / "store.json")
+    issuer = store.issuer("northpost.dev")
+    assert issuer is not None and issuer.enrolled
+    assert issuer.brand == "Northpost Freight Services"
+
+
+def test_seeding_never_touches_an_existing_store(tmp_path: Path) -> None:
+    """Overwriting somebody's enrolments on startup is not seeding."""
+    from signet.adapters.local_store import LocalRecordStore
+    from signet.adapters.records import record_store
+    from signet.config import load_settings
+
+    path = tmp_path / "store.json"
+    first = LocalRecordStore(path)
+    first.enrol("mine.example", "Mine", b"\x01" * 32)
+
+    store = record_store(load_settings(), path)
+    assert store.issuer("northpost.dev") is None
+    assert store.issuer("mine.example") is not None

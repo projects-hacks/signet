@@ -299,14 +299,14 @@ the issuer table.
 | The resolvers disagree | reported as a signal, because disagreement can mean a poisoned answer |
 | The zone is unsigned | DNSSEC state is reported as advisory, not required, since requiring it would exclude most issuers |
 | Extraction misreads a field | low confidence goes to a person, and a mismatch on an unreadable page is a question rather than a finding |
-| The record store is unreachable | verification fails closed rather than certifying without the ledger |
+| The record store is unreachable | verification never certifies rather than certifying without the ledger |
 | The audit write fails | the verdict still returns, because logging must never be able to fail a verification |
 | The model provider is down | enrolment degrades to a person doing it by hand, never to a wrong enrolment |
 
 ## Finding your way around
 
 ```
-src/signet/core/       payload, signing, mark, merkle, lookalike, verdict
+src/signet/core/       payload, signing, mark, merkle, lookalike, brand, shape, interpretation, verdict
 src/signet/ports/      one Protocol per capability, stated in domain terms
 src/signet/adapters/   one module per vendor, plus the shared HTTP client
 src/signet/verify/     pipeline, the seven checks, adjudication, evidence

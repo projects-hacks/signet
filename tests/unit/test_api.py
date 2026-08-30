@@ -17,7 +17,7 @@ def settings() -> Settings:
     unset = Credentials("unset", ("",))
     return Settings(
         fixtures=True,
-        resolvers=(),
+        resolvers=("https://cloudflare-dns.com/dns-query",),
         demo=Demo(issuer_domain="", lookalike_domain="", brand=""),
         xano=unset,
         nutrient=unset,

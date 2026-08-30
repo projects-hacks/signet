@@ -48,7 +48,7 @@ until the supplier chases the invoice a month later.
 ## Where Xano is the backend
 
 Xano holds everything the verdict depends on that is not in the document itself.
-Take it away and three of the seven checks stop working and the audit trail
+Take it away and three of the checks stop working and the audit trail
 disappears.
 
 | Table | What it carries | Which claim breaks without it |
@@ -102,11 +102,11 @@ world writable.
 ## How it was built
 
 **Approximately eight days.** First commit 20 August, this written on 28 August.
-Eighty one commits. The tooling question the submission form asks is answered
+Nearly a hundred commits. The tooling question the submission form asks is answered
 there rather than here, where it would not mean anything to a reader of the
 code.
 
-Roughly 7,000 lines of source and 4,900 lines of tests, 400 tests, strict type
+Roughly 7,700 lines of source and 5,400 lines of tests, over 470 tests, strict type
 checking, and continuous integration that runs with no credentials at all so a
 fork gets the same result.
 

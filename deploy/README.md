@@ -51,3 +51,16 @@ Issuance, enrolment and the DNS write. They run from a machine a person
 controls, and no public endpoint reaches them. That is why the verifier needs
 three credentials rather than eight: a compromise of the public surface produces
 a wrong answer about somebody's upload, never a forged document.
+
+## The sample endpoint
+
+`/api/sample/{kind}` mints freshly signed demo documents, and needs the demo
+signing keys. Set one environment variable on the verifier host:
+
+```
+SIGNET_SAMPLE_KEYS=northpost.dev=<base64 key>,north-post.dev=<base64 key>
+```
+
+Each value is the raw Ed25519 private key, base64 encoded. Without it the
+endpoint answers 404, `/api/health` reports `"samples": false`, and the check
+page simply does not offer samples, which is the correct degraded state.

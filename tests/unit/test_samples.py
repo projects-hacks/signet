@@ -21,7 +21,7 @@ DOMAIN = "sample.test"
 
 @pytest.fixture()
 def root(tmp_path: Path) -> tuple[Path, bytes]:
-    private, public = generate_key()
+    private, _ = generate_key()
     page = BytesIO()
     Image.new("RGB", (1200, 1500), "white").save(page, format="PNG")
     (tmp_path / "page.png").write_bytes(page.getvalue())
@@ -65,7 +65,7 @@ def test_each_minting_is_a_document_the_ledger_has_not_seen(root: tuple[Path, by
 def test_the_minted_signature_verifies_against_the_declared_issuer(
     root: tuple[Path, bytes],
 ) -> None:
-    path, private = root
+    _, private = root
     minting = minter(root)
     reader = ImageMarkReader()
     mark = decode_mark(reader.read_marks(minting.mint("genuine").content, "image/png")[0])

@@ -73,19 +73,35 @@ cd web && npm install && npm run build && cd ..
 uv run python -m uvicorn signet.api.app:create_app --factory --port 8800
 ```
 
+## Try it without preparing anything
+
+The hosted check page hands you documents: a genuine invoice, one with the
+account changed after signing, and one from a lookalike domain. Each is signed
+at the moment you ask, so the genuine one certifies for every visitor rather
+than only the first; the ledger records every document ever checked, and a
+static sample would be spent by whoever got there first.
+
+The same endpoint is `GET /api/sample/{genuine|doctored|lookalike}` on any
+deployment holding the demo signing keys (`SIGNET_SAMPLE_KEYS`, or the local
+key store when developing). The keys involved sign for demo domains registered
+for this project; a real issuer's key never serves an endpoint.
+
 ## How verification works
 
-Seven checks, each reporting its own answer and its own evidence.
+Seven checks, each reporting its own answer and its own evidence, in the order
+they run. Two of them need vendors: fidelity needs the extraction service and
+counterparty needs live search, so a build without those credentials runs the
+other five and says so rather than pretending.
 
 | Check | Question |
 | --- | --- |
 | signature | Does the key at the sender's domain verify this signature over these exact fields? |
 | identity | Is that domain the one enrolled for the brand the document claims? |
 | lookalike | Does the signing domain read as somebody else's, while not being theirs? |
-| fidelity | Does the page in front of you show what the signature actually covers? |
-| duplicate | Has this exact document been submitted here before? |
 | domain age | How long has the signing domain existed? |
+| fidelity | Does the page in front of you show what the signature actually covers? |
 | counterparty | What does the live web publish for this brand, and does it agree? |
+| duplicate | Has this exact document been submitted here before? Runs last, because it is the one check that writes |
 
 `decide(signals)` is a pure, total function. The same signals always produce the
 same verdict: no model, no clock, no network. It has a golden test suite rather
@@ -157,7 +173,9 @@ src/signet/adapters/   one module per vendor, behind those ports
 src/signet/verify/     pipeline, checks and adjudication
 src/signet/issue/      keys, publication, the lookalike sweep, the broker
 src/signet/agent/      the enrolment agent and the tools it is allowed
+src/signet/api/        the HTTP surface: verify, examine, adjudicate, sample
 web/                   the site and the document check screen
+xano/                  the exported function stacks the record store runs on
 tests/                 unit, golden verdict suite, offline replay, fakes
 ```
 
@@ -174,10 +192,10 @@ reached, and where the agent stops.
 | Command | What it does |
 | --- | --- |
 | `make setup` | Install dependencies and git hooks |
-| `make check` | Lint, strict type check, secret scan, prose hygiene |
+| `make check` | Lint, strict type check, prose hygiene. Secret scanning runs in pre-commit and CI |
 | `make test` | Test suite with branch coverage, fully offline |
 | `make doctor` | Report which services are configured and reachable |
-| `make demo-loop` | Generate a key, sign a receipt, draw the mark, verify it |
+| `make demo-loop` | Generate a key, sign a set of fields, draw the mark, verify it |
 | `make verify FILE=path` | Run one document through the pipeline |
 
 ## What a certified verdict does not mean

@@ -8,15 +8,11 @@ nothing about it is forged. The name is the forgery, and this is the only check
 that reads the name as a name.
 
 The comparison is local on purpose. The store already holds the enrolled set, so
-this asks the store about names in the neighbourhood of the signing domain rather
-than asking a registrar what exists. A check that needs a vendor to be reachable
-is a check that goes missing exactly when a backed up queue is being cleared, and
-whether a squat was registered this morning does not change what an invoice from
-last month is.
-
-The store answers one name at a time, so the neighbourhood is enumerated and
-probed rather than listed. That is bounded by the permutation cap, and it means
-this check needs nothing from the store that verification does not already use.
+this looks up the domain enrolled for the claimed brand and asks one question:
+does the signing domain read as that domain without being it? A check that needs
+a registrar to be reachable is a check that goes missing exactly when a backed up
+queue is being cleared, and whether a squat was registered this morning does not
+change what an invoice from last month is.
 
 An enrolled domain resembles itself perfectly, so being the enrolled domain is
 the pass rather than the failure.
@@ -25,7 +21,7 @@ the pass rather than the failure.
 from __future__ import annotations
 
 from signet.core.brand import same_brand
-from signet.core.lookalike import confusability, is_confusable
+from signet.core.lookalike import is_confusable
 from signet.core.verdict import Outcome, Signal
 from signet.ports.store import RecordStore
 from signet.verify.context import VerificationContext
@@ -91,22 +87,3 @@ class LookalikeCheck:
             if same_brand(issuer.brand, brand):
                 return issuer.domain
         return None
-
-    def _nearest_enrolled(self, domain: str) -> str | None:
-        """The enrolled domain this one imitates most closely, if any.
-
-        Enumerating the enrolled set beats probing the store once per candidate
-        spelling. The neighbourhood runs to several hundred names, and on the
-        verification path that is several hundred round trips to answer one
-        question. Ties break on the enrolled order, which is stable, so the same
-        document always names the same domain in its evidence.
-        """
-        best: str | None = None
-        best_score = 0.0
-        for issuer in self._store.enrolled_issuers():
-            if issuer.domain == domain:
-                continue
-            score = confusability(domain, issuer.domain)
-            if score > best_score and is_confusable(domain, issuer.domain):
-                best, best_score = issuer.domain, score
-        return best

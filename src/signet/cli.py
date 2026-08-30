@@ -1,8 +1,10 @@
 """Signet from the command line.
 
-Four verbs, matching what actually happens: make a key, publish it, issue a
-document, verify one. Nothing here holds logic of its own. It wires adapters to
-the pipeline and prints the result, so anything it can do the library can do.
+Six verbs, matching what actually happens: make a key, publish it, issue a
+document, verify one, enrol an issuer from whatever they sent, and release a
+key against a signed authorisation. Nothing here holds logic of its own. It
+wires adapters to the pipeline and prints the result, so anything it can do the
+library can do.
 """
 
 from __future__ import annotations
@@ -94,8 +96,11 @@ def publish(args: argparse.Namespace) -> int:
         )
         return 1
 
-    username, token, base_url = load_settings().namecom.require()
-    publisher = KeyPublisher(NameComDns(NameComClient(username, token, base_url)), DohResolver())
+    settings = load_settings()
+    username, token, base_url = settings.namecom.require()
+    publisher = KeyPublisher(
+        NameComDns(NameComClient(username, token, base_url)), DohResolver(settings.resolvers)
+    )
     value = publisher.publish(args.domain, issuer.public_key)
     print(f"wrote     TXT {DNS_LABEL}.{args.domain}")
 
@@ -244,21 +249,29 @@ def verify(args: argparse.Namespace) -> int:
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="signet", description=__doc__)
+    # On the root and on every subcommand, because every other flag comes after
+    # the verb and a flag that only parses before it reads as a bug.
     parser.add_argument("--store", default=str(DEFAULT_PATH), help="path to the local record store")
+    common = argparse.ArgumentParser(add_help=False)
+    common.add_argument("--store", default=str(DEFAULT_PATH), help=argparse.SUPPRESS)
     sub = parser.add_subparsers(dest="command", required=True)
 
-    generate = sub.add_parser("keygen", help="generate a signing key and show the DNS record")
+    generate = sub.add_parser(
+        "keygen", parents=[common], help="generate a signing key and show the DNS record"
+    )
     generate.add_argument("--domain", required=True)
     generate.add_argument("--brand", required=True)
     generate.set_defaults(handler=keygen)
 
-    send = sub.add_parser("publish", help="write the key to DNS and confirm it resolves")
+    send = sub.add_parser(
+        "publish", parents=[common], help="write the key to DNS and confirm it resolves"
+    )
     send.add_argument("--domain", required=True)
     send.add_argument("--attempts", type=int, default=10)
     send.add_argument("--delay", type=float, default=6.0)
     send.set_defaults(handler=publish)
 
-    make = sub.add_parser("issue", help="sign fields and draw the mark")
+    make = sub.add_parser("issue", parents=[common], help="sign fields and draw the mark")
     make.add_argument("--domain", required=True)
     make.add_argument("--class", dest="document_class", default="receipt")
     make.add_argument("--id", default="")
@@ -271,7 +284,9 @@ def build_parser() -> argparse.ArgumentParser:
     )
     make.set_defaults(handler=issue)
 
-    enrol = sub.add_parser("enrol", help="enrol an issuer from whatever they sent")
+    enrol = sub.add_parser(
+        "enrol", parents=[common], help="enrol an issuer from whatever they sent"
+    )
     enrol.add_argument(
         "request",
         help="the request itself, @path to read a file, or - to read standard input",
@@ -279,13 +294,15 @@ def build_parser() -> argparse.ArgumentParser:
     enrol.add_argument("--turns", type=int, default=MAX_TURNS)
     enrol.set_defaults(handler=enrol_issuer)
 
-    let_go = sub.add_parser("release", help="publish a key against a signed authorisation")
+    let_go = sub.add_parser(
+        "release", parents=[common], help="publish a key against a signed authorisation"
+    )
     let_go.add_argument("--domain", required=True)
     let_go.add_argument("--brand", required=True)
     let_go.add_argument("--envelope", required=True)
     let_go.set_defaults(handler=release)
 
-    check = sub.add_parser("verify", help="verify a document")
+    check = sub.add_parser("verify", parents=[common], help="verify a document")
     check.add_argument("file")
     check.add_argument("--brand", default=None, help="the brand the document claims to be from")
     check.add_argument("--by", default="cli")

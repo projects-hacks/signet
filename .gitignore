@@ -28,7 +28,6 @@ web/.vite/
 .signet/
 
 # Demo artefacts and issuer private keys
-.signet/
 demo/
 
 # Local agent tooling. Third party, carries tooling references, and is not our source.

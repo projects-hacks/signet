@@ -91,7 +91,7 @@ def build_broker(settings: Settings, store_path: Path) -> EnrolmentBroker:
         store=record_store(settings, store_path),
         publisher=KeyPublisher(
             NameComDns(NameComClient(namecom_user, namecom_token, namecom_url)),
-            DohResolver(),
+            DohResolver(settings.resolvers),
         ),
     )
 
@@ -119,7 +119,7 @@ def build_pipeline(settings: Settings, store_path: Path) -> VerificationPipeline
     store = record_store(settings, store_path)
     return VerificationPipeline(
         checks=default_checks(
-            resolver=DohResolver(),
+            resolver=DohResolver(settings.resolvers),
             store=store,
             registrations=RdapRegistrationData(),
             today=date.today(),

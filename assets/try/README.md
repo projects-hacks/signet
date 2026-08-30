@@ -1,10 +1,12 @@
 # Try it
 
-One kit per person. Each kit is a set of four invoices that exist only to be
-verified, and every document in a kit carries its own signature over its own
-numbers.
+The fastest way is the hosted page: it hands you the documents itself, freshly
+signed per visitor, at https://signet-lime.vercel.app/verify. Nothing here is
+needed for that.
 
-Take a kit nobody else has taken and work through it in order:
+The kits below are for testing away from the hosted page: one folder per
+person, four invoices per folder, every document carrying its own signature
+over its own numbers.
 
 | File | What it is | What the verifier should say |
 | --- | --- | --- |
@@ -13,9 +15,13 @@ Take a kit nobody else has taken and work through it in order:
 | `3-lookalike.png` | Signed with a real key, from a domain that reads like the real one | FLAGGED, the signing domain is not the brand's |
 | `4-the-same-invoice-again.png` | Byte for byte the first file | FLAGGED, already submitted |
 
-Order matters for the last one. It is a duplicate because you verified the first
-file a moment earlier, which is the whole point of it.
+Check them against the hosted page, where every check runs. A local build
+without extraction credentials runs five of the seven checks and cannot catch
+the doctored page; it will tell you so rather than pretend.
 
-Documents 1 and 4 work once per kit. The ledger records every document ever
-verified, so a genuine invoice can only be new to it once, and that is deliberate
-rather than a limitation of the sample. Run `scripts/make_try_kits.py` for more.
+Two rules. Take a kit nobody else has taken: the ledger records every document
+ever verified anywhere, so a genuine invoice is new to it exactly once, which
+is the point of the fourth file. And keep the order: the fourth is only a
+duplicate because you checked the first a moment earlier.
+
+`scripts/make_try_kits.py` generates more kits; it needs the demo signing keys.

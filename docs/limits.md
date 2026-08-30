@@ -109,3 +109,10 @@ Signet says nothing about whether the account on a certified invoice is one your
 bank will accept, whether the counterparty is solvent tomorrow, or whether a
 person inside your own organisation changed the payment instruction after the
 document was checked.
+
+## Ingestion is at least once
+
+A retried delivery can record the same submission twice before the unique
+index refuses the second row. The duplicate check reads the ledger the same
+way either way, so the verdict does not change; the audit trail may carry the
+extra attempt, which is the correct direction for a log to err in.
