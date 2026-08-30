@@ -674,3 +674,11 @@ footer span { font-weight: 600; color: var(--ink); }
   * { animation: none !important; transition: none !important; }
   .arrives { opacity: 1; transform: none; }
 }
+
+.hero-note {
+  margin: 1.1rem 0 0;
+  max-width: 44ch;
+  font-size: 0.9rem;
+  line-height: 1.55;
+  color: var(--muted, #5c6763);
+}
