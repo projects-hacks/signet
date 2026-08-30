@@ -11,6 +11,11 @@ The point is the direction of the question. Every other tool looks at the
 document and guesses whether it is genuine, and the forger has a copy of that
 tool. Signet does not look at the document. It asks the sender.
 
+**Live:** [the site](https://signet-lime.vercel.app) ·
+[check a document](https://signet-lime.vercel.app/verify/) ·
+[verifier API](https://signet-q89e.onrender.com/api/health).
+The check page brings its own documents, so trying it needs nothing from here.
+
 ## Why
 
 | | |
@@ -183,9 +188,85 @@ tests/                 unit, golden verdict suite, offline replay, fakes
 fails the build if the domain ever reaches for a vendor
 ([ADR 0006](docs/adr/0006-ports-and-adapters.md)).
 
-[docs/architecture.md](docs/architecture.md) has the diagrams: how the layers
-depend on each other, what happens on the verification path, how the verdict is
-reached, and where the agent stops.
+One document's path through the system, colour coded by what each part is
+allowed to know:
+
+```mermaid
+graph LR
+    subgraph ARRIVES["what arrives"]
+        DOC([the page,<br/>photographed or not]):::neutral
+        MARK[decode the mark,<br/>rasterising a PDF first]:::pure
+    end
+
+    subgraph CHECKS["the checks, each asking one source"]
+        SIG[signature]:::check
+        ID[identity]:::check
+        LOOK[lookalike]:::check
+        FID[page match]:::check
+        DUP[seen before]:::check
+    end
+
+    subgraph VENDORS["somebody else's infrastructure"]
+        DNS[(the issuer's<br/>own DNS)]:::vendor
+        STORE[(record store)]:::vendor
+        EXTRACT[(extraction)]:::vendor
+    end
+
+    DEC{{"decide(signals)<br/>pure and total"}}:::pure
+
+    C[CERTIFIED]:::pass
+    F[FLAGGED]:::fail
+    U[UNSIGNED]:::doubt
+
+    DOC --> MARK
+    MARK --> SIG
+    MARK --> ID
+    MARK --> LOOK
+    DOC --> FID
+    MARK --> DUP
+
+    SIG --> DNS
+    ID --> STORE
+    LOOK --> STORE
+    FID --> EXTRACT
+    DUP --> STORE
+
+    CHECKS ==>|"seven signals,<br/>each with its evidence"| DEC
+    DEC --> C
+    DEC --> F
+    DEC --> U
+
+    style ARRIVES fill:#fbfaf7,stroke:#c9c2b4
+    style CHECKS fill:#fbfaf7,stroke:#c9c2b4
+    style VENDORS fill:#fbfaf7,stroke:#c9c2b4
+
+    classDef neutral fill:#ffffff,stroke:#14161a,stroke-width:2px,color:#14161a
+    classDef pure fill:#e8eef7,stroke:#1b3a6b,stroke-width:2px,color:#14161a
+    classDef check fill:#f0efe9,stroke:#6a6a66,stroke-width:1.5px,color:#14161a
+    classDef vendor fill:#fdf0e6,stroke:#a35a21,stroke-width:2px,color:#14161a
+    classDef pass fill:#e4f0ea,stroke:#16624a,stroke-width:2px,color:#14161a
+    classDef fail fill:#f7e4e2,stroke:#a32a21,stroke-width:2px,color:#14161a
+    classDef doubt fill:#f7efdf,stroke:#8a5a10,stroke-width:2px,color:#14161a
+```
+
+Blue never touches orange: the pure domain reads vendors only through the grey
+checks, which speak to them through ports. Two advisory checks, domain age and
+counterparty, are omitted above because they inform a reader and never decide
+a verdict.
+
+[docs/architecture.md](docs/architecture.md) has the full set: the layer
+diagram, the verification sequence, the verdict rules, the doubtful-page path
+and where the agent stops. The decisions behind them are recorded:
+
+| ADR | The decision |
+| --- | --- |
+| [0001](docs/adr/0001-the-payload-travels-inside-the-mark.md) | the signed bytes travel in the mark and are never re-derived |
+| [0002](docs/adr/0002-dns-is-the-trust-anchor.md) | the issuer's own DNS vouches, not a certificate authority |
+| [0003](docs/adr/0003-the-verdict-is-a-pure-function.md) | no model touches the verdict |
+| [0004](docs/adr/0004-unknown-never-pass.md) | a check that cannot look says so, and never passes |
+| [0005](docs/adr/0005-the-artifact-is-a-printed-page.md) | the proof rides on the face of the page |
+| [0006](docs/adr/0006-ports-and-adapters.md) | the domain never imports a vendor |
+| [0007](docs/adr/0007-the-model-is-not-a-gate.md) | the model orchestrates, the code decides |
 
 ## Commands
 

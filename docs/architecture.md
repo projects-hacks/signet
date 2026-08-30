@@ -90,17 +90,21 @@ sequenceDiagram
     participant D as DNS (two resolvers)
     participant N as Nutrient
     participant S as SerpApi
-    participant X as Xano
+    participant X as record store
     participant V as decide()
 
     R->>P: the document
-    P->>P: read the mark from the page
+    P->>P: read the mark from the page,<br/>rasterising a PDF first
     P->>D: fetch the key at _signet.domain
     D-->>P: both resolvers must agree
     P->>X: is this domain enrolled, for which brand
-    P->>X: has this document been submitted before
-    N-->>P: the printed fields, each with a confidence
-    S-->>P: which domain the open web publishes for the brand
+    X-->>P: the brand record
+    P->>N: read the printed payment fields
+    N-->>P: each field, with a confidence and a box
+    P->>S: which domain does the web publish for this brand
+    S-->>P: the resolved domain, with sources
+    P->>X: record the submission, last, and only if every<br/>deciding check reached its source
+    X-->>P: first sighting, or already seen
     P->>V: seven signals
     V-->>R: one verdict, and the working
 ```
@@ -117,10 +121,10 @@ graph LR
     SIG[signature]:::sig
     ID[identity]:::sig
     LOOK[lookalike]:::sig
-    FID[fidelity]:::sig
-    DUP[duplicate]:::sig
     AGE[domain age]:::sig
+    FID[fidelity]:::sig
     CP[counterparty]:::sig
+    DUP[duplicate]:::sig
 
     DEC{{"decide(signals)"}}:::decide
 
