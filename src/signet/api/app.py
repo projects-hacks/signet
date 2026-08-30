@@ -29,7 +29,7 @@ from starlette.staticfiles import StaticFiles
 from signet.adapters.local_store import DEFAULT_PATH
 from signet.adapters.records import record_store
 from signet.adapters.samples import SampleError, SampleMinter
-from signet.config import Settings, load_settings
+from signet.config import Settings, load_env_file, load_settings
 from signet.core.shape import well_formed
 from signet.core.verdict import Decision, Outcome, Signal, decide
 from signet.errors import SignetError
@@ -146,6 +146,12 @@ def create_app(
     store_path: Path = DEFAULT_PATH,
     static_root: Path | None = Path("web/dist"),
 ) -> Starlette:
+    # Explicit settings mean a caller who already decided, usually a test.
+    # Otherwise the nearest .env fills in what the environment is missing,
+    # for the same reason the CLI does: sourcing the file by hand is a step
+    # people forget, and the failure it produces blames the configuration.
+    if settings is None:
+        load_env_file()
     resolved = settings or load_settings()
     pipeline = build_pipeline(resolved, store_path)
     store = record_store(resolved, store_path)
