@@ -52,8 +52,18 @@ export default function App() {
   const [applied, setApplied] = useState(null);
   const picker = useRef(null);
   const running = useRef(null);
+  /* Object URLs live for the whole session, because history keeps pointing at
+     them. Revoking one when the preview moves on turned every revisited entry
+     into a broken image. They are all released together on unmount. */
+  const minted = useRef([]);
 
-  useEffect(() => () => running.current?.abort(), []);
+  useEffect(
+    () => () => {
+      running.current?.abort();
+      minted.current.forEach((url) => URL.revokeObjectURL(url));
+    },
+    [],
+  );
   useEffect(() => {
     let alive = true;
     verifierHealth().then((health) => {
@@ -63,10 +73,16 @@ export default function App() {
       alive = false;
     };
   }, []);
+  /* A drop that misses the target must not navigate the tab away from a run. */
   useEffect(() => {
-    if (!preview) return undefined;
-    return () => URL.revokeObjectURL(preview);
-  }, [preview]);
+    const swallow = (event) => event.preventDefault();
+    window.addEventListener("dragover", swallow);
+    window.addEventListener("drop", swallow);
+    return () => {
+      window.removeEventListener("dragover", swallow);
+      window.removeEventListener("drop", swallow);
+    };
+  }, []);
 
   function take(next) {
     if (!next) return;
