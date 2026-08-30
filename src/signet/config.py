@@ -87,6 +87,7 @@ class Settings:
     foxit_mcp_python: str | None
     signature_gateway: str
     sender_email: str
+    sample_keys: str
     doctavian_signatures: Credentials
     namecom: Credentials
     serpapi: Credentials
@@ -205,6 +206,7 @@ def load_settings() -> Settings:
     """
     return Settings(
         fixtures=_get(FIXTURES_ENV, "1") not in {"0", "false", "no"},
+        sample_keys=_get("SIGNET_SAMPLE_KEYS"),
         resolvers=DEFAULT_RESOLVERS,
         demo=Demo(
             issuer_domain=_get("SIGNET_DEMO_DOMAIN"),

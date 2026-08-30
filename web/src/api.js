@@ -72,3 +72,24 @@ export async function adjudicate(runId, field, reading) {
   if (!response.ok) throw new Error(payload.error ?? "That reading could not be applied.");
   return payload;
 }
+
+/* Whether this deployment can hand out demo documents at all. */
+export async function verifierHealth() {
+  try {
+    const response = await fetch(`${BASE}/api/health`);
+    if (!response.ok) return null;
+    return await response.json();
+  } catch {
+    return null;
+  }
+}
+
+/* A demo document, signed at the moment of asking. Each request is a new
+   document to the ledger, so the genuine one certifies for every visitor
+   rather than only the first. */
+export async function sampleDocument(kind) {
+  const response = await fetch(`${BASE}/api/sample/${kind}`);
+  if (!response.ok) throw new Error("The sample could not be fetched.");
+  const blob = await response.blob();
+  return new File([blob], `sample-${kind}.png`, { type: "image/png" });
+}

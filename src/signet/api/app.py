@@ -28,6 +28,7 @@ from starlette.staticfiles import StaticFiles
 
 from signet.adapters.local_store import DEFAULT_PATH
 from signet.adapters.records import record_store
+from signet.adapters.samples import SampleError, SampleMinter
 from signet.config import Settings, load_settings
 from signet.core.verdict import Decision, Outcome, Signal, decide
 from signet.errors import SignetError
@@ -117,6 +118,7 @@ def create_app(
     resolved = settings or load_settings()
     pipeline = build_pipeline(resolved, store_path)
     store = record_store(resolved, store_path)
+    minter = SampleMinter(keys_env=resolved.sample_keys)
 
     async def health(request: Request) -> JSONResponse:
         return JSONResponse(
@@ -124,7 +126,29 @@ def create_app(
                 "status": "ok",
                 "fixtures": resolved.fixtures,
                 "extraction": resolved.nutrient.configured and not resolved.fixtures,
+                "samples": minter.available,
             }
+        )
+
+    async def sample(request: Request) -> Response:
+        """A fresh signed demo document, minted for whoever asks.
+
+        Signed per request rather than served from a file, because the ledger
+        is global and a static sample is spent by its first visitor. The page
+        never changes; the signature and its timestamp do.
+        """
+        try:
+            minted = minter.mint(request.path_params["kind"])
+        except SampleError as exc:
+            return JSONResponse({"error": str(exc)}, status_code=404)
+        return Response(
+            minted.content,
+            media_type="image/png",
+            headers={
+                "Content-Disposition": f'attachment; filename="{minted.filename}"',
+                # Every response is a different document. Nothing may cache it.
+                "Cache-Control": "no-store",
+            },
         )
 
     async def verify(request: Request) -> JSONResponse:
@@ -270,6 +294,7 @@ def create_app(
 
     routes: list[Route | Mount] = [
         Route("/api/health", health, methods=["GET"]),
+        Route("/api/sample/{kind}", sample, methods=["GET"]),
         Route("/api/verify", verify, methods=["POST"]),
         Route("/api/examine", examine, methods=["POST"]),
         Route("/api/adjudicate", adjudicate, methods=["POST"]),

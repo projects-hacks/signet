@@ -1,0 +1,38 @@
+{
+  "genuine": {
+    "page": "genuine.png",
+    "issuer": "northpost.dev",
+    "fields": {
+      "cls": "invoice",
+      "id": "INV-2026-0611",
+      "amt": "15580.00",
+      "cur": "USD",
+      "iban": "GB29NWBK60161331926819",
+      "bic": "NWBKGB2L"
+    }
+  },
+  "doctored": {
+    "page": "doctored.png",
+    "issuer": "northpost.dev",
+    "fields": {
+      "cls": "invoice",
+      "id": "INV-2026-0611",
+      "amt": "15580.00",
+      "cur": "USD",
+      "iban": "GB29NWBK60161331926819",
+      "bic": "NWBKGB2L"
+    }
+  },
+  "lookalike": {
+    "page": "lookalike.png",
+    "issuer": "north-post.dev",
+    "fields": {
+      "cls": "invoice",
+      "id": "INV-2026-0611",
+      "amt": "15580.00",
+      "cur": "USD",
+      "iban": "GB94BARC10201530093459",
+      "bic": "NWBKGB2L"
+    }
+  }
+}

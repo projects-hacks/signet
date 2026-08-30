@@ -29,6 +29,7 @@ def settings() -> Settings:
         foxit_mcp_python=None,
         signature_gateway="foxit",
         sender_email="",
+        sample_keys="",
         doctavian_signatures=unset,
         namecom=unset,
         serpapi=unset,

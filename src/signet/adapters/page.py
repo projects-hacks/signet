@@ -33,18 +33,32 @@ MARGIN: Final = 0.05
 MIN_PIXELS_PER_MODULE: Final = 3
 
 
-def page_with_mark(document: bytes, mark: str) -> bytes:
-    """Rasterise the first page and print the mark on it, as PNG bytes."""
+def rasterise(document: bytes) -> bytes:
+    """The first page as PNG bytes, at the scale a printed page survives."""
     try:
         pdf = pypdfium2.PdfDocument(document)
         page = pdf[0].render(scale=RENDER_SCALE).to_pil().convert("RGB")
     except Exception as exc:  # pypdfium2 raises its own hierarchy
         raise AdapterError(f"could not rasterise the rendered document: {exc}") from exc
+    out = BytesIO()
+    page.save(out, format="PNG")
+    return out.getvalue()
+
+
+def stamp_mark(page_png: bytes, mark: str) -> bytes:
+    """Print the mark on an already rasterised page.
+
+    Split from rasterisation so a page rendered once can carry many marks:
+    the sample endpoint signs afresh per request and stamps the same page.
+    """
+    try:
+        page = Image.open(BytesIO(page_png)).convert("RGB")
+    except Exception as exc:
+        raise AdapterError(f"could not open the page image: {exc}") from exc
 
     # The mark arrives at one pixel per module and is enlarged by a whole
     # number of pixels. Anything else lands module edges between pixels, and a
     # code that is visibly there stops decoding.
-    # One pixel per module, so the enlargement below is the only scaling.
     code = Image.open(BytesIO(render_mark(mark, box_pixels=1))).convert("RGB")
     factor = max(MIN_PIXELS_PER_MODULE, round(page.width * MARK_WIDTH / code.width))
     side = code.width * factor
@@ -56,3 +70,8 @@ def page_with_mark(document: bytes, mark: str) -> bytes:
     out = BytesIO()
     page.save(out, format="PNG")
     return out.getvalue()
+
+
+def page_with_mark(document: bytes, mark: str) -> bytes:
+    """Rasterise the first page and print the mark on it, as PNG bytes."""
+    return stamp_mark(rasterise(document), mark)

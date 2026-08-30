@@ -813,3 +813,51 @@ tr[data-unsure="true"] .meter b { color: var(--doubt); }
   color: var(--muted);
   max-width: 64ch;
 }
+
+/* ── the sample rack: a demo that hands you the documents ──── */
+
+.samples {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.sample-chip {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 0.75rem;
+  width: 100%;
+  padding: 0.55rem 0.8rem;
+  font: inherit;
+  font-size: 0.85rem;
+  text-align: left;
+  color: var(--ink);
+  background: var(--sheet);
+  border: 1px solid var(--rule);
+  border-radius: 3px;
+  cursor: pointer;
+}
+.sample-chip:hover:not(:disabled) {
+  border-color: var(--verify);
+}
+.sample-chip:focus-visible {
+  outline: 2px solid var(--verify);
+  outline-offset: 2px;
+}
+.sample-chip:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+.sample-note {
+  font-size: 0.65rem;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.sample-fine {
+  margin: 0.1rem 0 0;
+  font-size: 0.72rem;
+  color: var(--muted);
+}

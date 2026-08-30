@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { adjudicate, checkDocument } from "./api.js";
+import { adjudicate, checkDocument, sampleDocument, verifierHealth } from "./api.js";
 import Adjudicate from "./components/Adjudicate.jsx";
 import Copy from "./components/Copy.jsx";
 import Counterparty from "./components/Counterparty.jsx";
@@ -8,6 +8,17 @@ import Reading from "./components/Reading.jsx";
 import Regions from "./components/Regions.jsx";
 import Stamp from "./components/Stamp.jsx";
 import Working from "./components/Working.jsx";
+
+/* The three stories a judge should see, in the order that builds the argument.
+   Labels say what each is, because this is a guided demo rather than a blind
+   test: the interesting part is watching the checks explain themselves. */
+const SAMPLES = [
+  { kind: "genuine", label: "A genuine invoice", note: "should certify" },
+  { kind: "doctored", label: "One with the account changed", note: "caught by the page" },
+  { kind: "lookalike", label: "One from a lookalike domain", note: "caught by identity" },
+];
+
+const SAMPLE_BRAND = "Northpost Freight Services";
 
 const READING = {
   certified: "Signed by the domain this brand signs from, and the page matches what was signed.",
@@ -29,10 +40,21 @@ export default function App() {
      second time it has been seen before. */
   const [history, setHistory] = useState([]);
   const [resolving, setResolving] = useState(false);
+  const [samples, setSamples] = useState(false);
+  const [fetching, setFetching] = useState(null);
   const picker = useRef(null);
   const running = useRef(null);
 
   useEffect(() => () => running.current?.abort(), []);
+  useEffect(() => {
+    let alive = true;
+    verifierHealth().then((health) => {
+      if (alive && health?.samples) setSamples(true);
+    });
+    return () => {
+      alive = false;
+    };
+  }, []);
   useEffect(() => {
     if (!preview) return undefined;
     return () => URL.revokeObjectURL(preview);
@@ -46,6 +68,22 @@ export default function App() {
     setResult(null);
     setLive(null);
     setError(null);
+  }
+
+  async function takeSample(kind) {
+    if (live || fetching) return;
+    setFetching(kind);
+    setError(null);
+    try {
+      const sample = await sampleDocument(kind);
+      take(sample);
+      // The demo issuer, filled in so the next click is the check itself.
+      setBrand(SAMPLE_BRAND);
+    } catch (cause) {
+      setError(cause.message);
+    } finally {
+      setFetching(null);
+    }
   }
 
   async function check(event) {
@@ -211,6 +249,27 @@ export default function App() {
             <span className="label">{file ? "Document" : "Choose or drop a document"}</span>
             <span className="mono">{file ? file.name : "PNG, JPEG or PDF"}</span>
           </button>
+
+          {samples && !file && !shown && (
+            <div className="samples">
+              <span className="label">Nothing to check? Take one of ours</span>
+              {SAMPLES.map((sample) => (
+                <button
+                  key={sample.kind}
+                  type="button"
+                  className="sample-chip"
+                  disabled={Boolean(fetching)}
+                  onClick={() => takeSample(sample.kind)}
+                >
+                  <span>{fetching === sample.kind ? "Signing a fresh one" : sample.label}</span>
+                  <span className="mono sample-note">{sample.note}</span>
+                </button>
+              ))}
+              <p className="sample-fine">
+                Each one is signed the moment you ask, so it has never been seen before.
+              </p>
+            </div>
+          )}
 
           <label className="brand-field">
             <span className="label">Who does it claim to be from?</span>
