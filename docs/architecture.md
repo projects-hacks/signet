@@ -324,6 +324,11 @@ which port, so it is the map of every external dependency in one screen.
 
 ## Decisions written down
 
+- [ADR 0001](adr/0001-the-payload-travels-inside-the-mark.md), why the signed bytes are never re-derived
+- [ADR 0002](adr/0002-dns-is-the-trust-anchor.md), why the issuer's own domain vouches, not a certificate authority
+- [ADR 0003](adr/0003-the-verdict-is-a-pure-function.md), why no model touches the verdict
+- [ADR 0004](adr/0004-unknown-never-pass.md), what happens when a check cannot look
+- [ADR 0005](adr/0005-the-artifact-is-a-printed-page.md), why the proof rides on the face of the page
 - [ADR 0006](adr/0006-ports-and-adapters.md), why the domain never imports a vendor
 - [ADR 0007](adr/0007-the-model-is-not-a-gate.md), why the model orchestrates and the code decides
 
