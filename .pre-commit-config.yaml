@@ -36,7 +36,7 @@ repos:
 
       - id: mypy
         name: mypy strict
-        entry: uv run mypy
+        entry: uv run python -m mypy
         language: system
         pass_filenames: false
         always_run: true
@@ -45,7 +45,7 @@ repos:
       # commit, and a broken test reaching the remote is the thing worth stopping.
       - id: pytest
         name: pytest
-        entry: uv run pytest -q
+        entry: uv run python -m pytest -q
         language: system
         pass_filenames: false
         always_run: true
