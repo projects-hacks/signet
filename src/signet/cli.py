@@ -190,6 +190,16 @@ def enrol_issuer(args: argparse.Namespace) -> int:
     # find an identifier we already hold.
     waiting = agent.pending
     if waiting is not None:
+        # Before anything else. The authorisation a person is about to sign
+        # carries a hash over this key, so a run that ends without writing it
+        # down produces a signature nobody can act on.
+        minted = agent.generated_key(waiting.domain)
+        if minted is not None:
+            path = _key_path(waiting.domain)
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(minted)
+            path.chmod(0o600)
+            print(f"  Key written to {path}")
         print(f"  Waiting on a signature. Envelope {waiting.envelope_id},")
         print(f"  authorisation reference {waiting.authorisation_hash}.")
         print("\n  Once it is signed, publish the key with:\n")

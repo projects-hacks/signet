@@ -434,3 +434,18 @@ def test_a_tool_that_breaks_answers_rather_than_raising() -> None:
     wrong and report it. A crash ends the run with no account of what happened."""
     result = json.loads(call(toolbox(), "record_interpretation", '{"field_name": 7}'))
     assert "error" in result
+
+
+def test_the_key_the_agent_mints_can_be_recovered_after_the_run() -> None:
+    """The authorisation carries a hash over this key, so a run that ends
+    without it produces a signature nobody can act on. A person signed one and
+    the enrolment was unrecoverable, because nothing had written the key down."""
+    box = toolbox()
+    attribute(box)
+    box.resolve_counterparty(BRAND)
+    box.generate_signing_key(REAL)
+    box.draft_authorisation(REAL, BRAND, SIGNER)
+
+    agent = Agent(ScriptedClient([]), box)
+    minted = agent.generated_key(REAL)
+    assert minted is not None and len(minted) == 32

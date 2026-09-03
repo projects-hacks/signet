@@ -97,6 +97,17 @@ class Agent:
         self._client = client
         self._toolbox = toolbox
 
+    def generated_key(self, domain: str) -> bytes | None:
+        """The private key minted during this run, so it can be kept.
+
+        The authorisation carries a hash over this key. Losing it when the
+        process exits means the signed document can never be released, which is
+        exactly what happened: a person signed, and the enrolment was
+        unrecoverable because nothing had written the key down.
+        """
+        pair = self._toolbox.keys.get(domain)
+        return pair[0] if pair else None
+
     @property
     def pending(self) -> Pending | None:
         """The enrolment now waiting on a person, if the run got that far.
