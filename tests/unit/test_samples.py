@@ -104,3 +104,12 @@ def test_malformed_keys_are_refused_with_the_format(root: tuple[Path, bytes]) ->
 
 def test_no_manifest_means_unavailable_not_broken(tmp_path: Path) -> None:
     assert not SampleMinter(root=tmp_path, keys_env="").available
+
+
+def test_pasting_the_whole_assignment_line_still_works() -> None:
+    """Setting this means pasting into somebody's dashboard, and pasting the
+    whole NAME=value line is the obvious mistake. Failing on it would mean a
+    deployment that starts, reports no samples, and never says why."""
+    value = f"northpost.dev={base64.b64encode(b'k' * 32).decode()}"
+    minter = SampleMinter(keys_env=f"SIGNET_SAMPLE_KEYS={value}")
+    assert minter.available

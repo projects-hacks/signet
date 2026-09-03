@@ -109,9 +109,15 @@ class SampleMinter:
 
 
 def _parse_keys(keys_env: str) -> dict[str, bytes]:
-    """domain=base64 pairs, comma separated, whitespace forgiven."""
+    """domain=base64 pairs, comma separated, whitespace forgiven.
+
+    The variable's own name is stripped if it is present. Setting this means
+    pasting a value into somebody's dashboard, and pasting the whole
+    NAME=value line is the obvious mistake to make. Failing on it would mean a
+    deployment that starts, reports no samples, and never says why.
+    """
     parsed: dict[str, bytes] = {}
-    for entry in keys_env.split(","):
+    for entry in keys_env.removeprefix("SIGNET_SAMPLE_KEYS=").split(","):
         entry = entry.strip()
         if not entry:
             continue
