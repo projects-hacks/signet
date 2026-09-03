@@ -69,13 +69,17 @@ class Toolbox:
     readings: dict[str, Interpretation] = field(default_factory=dict, init=False)
 
     def record_interpretation(
-        self, field_name: str, value: str, quote: str, alternative: str = ""
+        self, field_name: str, value: str, quote: str, alternative: str | None = ""
     ) -> dict[str, Any]:
         """State one field read out of the request, and where it was read.
 
         The quote has to be in the text. That is the whole point: a model asked
         for evidence will produce evidence, and unchecked evidence is prose.
         """
+        # A model may send an optional argument as an explicit null rather than
+        # omitting it, which defeats the default and is not its mistake to pay
+        # for. One did, and the agent died on it mid-enrolment.
+        alternative = alternative or ""
         if field_name not in FIELDS:
             raise ToolRefused(
                 f"There is no field called {field_name!r}. The fields are {', '.join(FIELDS)}."
@@ -410,3 +414,8 @@ def call(toolbox: Toolbox, name: str, arguments: str) -> str:
         return json.dumps({"error": f"Wrong arguments for {name}: {wrong}"})
     except SignetError as failure:
         return json.dumps({"error": str(failure)})
+    except Exception as unexpected:
+        # The whole design says a tool answers rather than raises, because the
+        # model has to be able to read what went wrong and say so. A crash here
+        # ends the run with a traceback and no account of what happened.
+        return json.dumps({"error": f"{name} could not run with those arguments: {unexpected}"})

@@ -419,3 +419,18 @@ def test_a_rejected_reading_is_named_and_counted_for_the_template() -> None:
     reading = box.readings["domain"]
     assert reading.uncertain
     assert "north-post.dev" in reading.note
+
+
+def test_an_optional_argument_sent_as_null_is_not_the_models_mistake_to_pay_for() -> None:
+    """A model may send an omitted argument as an explicit null, which defeats
+    the default. One did, and the agent died mid-enrolment on a traceback."""
+    box = toolbox()
+    box.record_interpretation("domain", REAL, "invoicing runs from northpost.dev", None)
+    assert box.readings["domain"].alternative == ""
+
+
+def test_a_tool_that_breaks_answers_rather_than_raising() -> None:
+    """The design says a tool answers, because the model has to read what went
+    wrong and report it. A crash ends the run with no account of what happened."""
+    result = json.loads(call(toolbox(), "record_interpretation", '{"field_name": 7}'))
+    assert "error" in result
