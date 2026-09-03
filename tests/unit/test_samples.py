@@ -109,7 +109,14 @@ def test_no_manifest_means_unavailable_not_broken(tmp_path: Path) -> None:
 def test_pasting_the_whole_assignment_line_still_works() -> None:
     """Setting this means pasting into somebody's dashboard, and pasting the
     whole NAME=value line is the obvious mistake. Failing on it would mean a
-    deployment that starts, reports no samples, and never says why."""
-    value = f"northpost.dev={base64.b64encode(b'k' * 32).decode()}"
+    deployment that starts, reports no samples, and never says why.
+
+    Every issuer in the manifest is supplied here on purpose. Naming only one
+    leaves the rest to be filled from whatever key store the machine running
+    the test happens to have, which is how this test first passed locally and
+    failed in CI.
+    """
+    key = base64.b64encode(b"k" * 32).decode()
+    value = ",".join(f"{domain}={key}" for domain in ("northpost.dev", "north-post.dev"))
     minter = SampleMinter(keys_env=f"SIGNET_SAMPLE_KEYS={value}")
     assert minter.available
