@@ -8,8 +8,22 @@ import { fieldLabel, uncertainFields } from "../labels.js";
 
 export default function Regions({ compared, fidelity }) {
   const doubted = uncertainFields(fidelity);
-  return compared
-    .filter((field) => field.box)
+  const drawn = compared.filter((field) => field.box);
+  // Labels above their box sit on one line, and two boxes side by side on a
+  // totals row are far closer together than their labels are wide, so the
+  // second prints over the first. Ordering them left to right and lifting each
+  // one clear of the last gives every label its own line.
+  const lifted = new Map();
+  drawn
+    .filter((field) => field.box.left + field.box.width > 0.66)
+    .sort((a, b) => a.box.left - b.box.left)
+    .forEach((field, index, all) => {
+      const previous = all[index - 1];
+      const crowded = previous && field.box.left - previous.box.left < 0.14;
+      lifted.set(field.field, crowded ? (lifted.get(previous.field) ?? 0) + 1 : 0);
+    });
+
+  return drawn
     .map((field) => {
       const uncertain = doubted.has(field.field);
       // A label to the right of a value near the right margin would hang off
@@ -29,6 +43,7 @@ export default function Regions({ compared, fidelity }) {
           data-uncertain={String(uncertain)}
           data-side={side}
           style={{
+            "--lift": lifted.get(field.field) ?? 0,
             left: `${(field.box.left - pad / 2) * 100}%`,
             top: `${(field.box.top - pad) * 100}%`,
             width: `${(field.box.width + pad) * 100}%`,
