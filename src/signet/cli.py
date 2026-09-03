@@ -19,7 +19,7 @@ from pathlib import Path
 
 from signet.adapters.dns_multi import DohResolver
 from signet.adapters.local_store import DEFAULT_PATH
-from signet.adapters.namecom import NameComClient, NameComDns
+from signet.adapters.namecom import NameComClient, NameComDns, NameComRegistrar
 from signet.adapters.page import page_with_mark
 from signet.adapters.qr import render_mark
 from signet.adapters.records import record_store
@@ -34,6 +34,7 @@ from signet.core.verdict import Outcome, Verdict
 from signet.errors import SignetError
 from signet.issue.broker import Pending, ReleaseRefused, authorisation_hash
 from signet.issue.publish import KeyPublisher
+from signet.issue.sweep import LookalikeSweep
 from signet.verify.pipeline import VerificationRequest
 from signet.wiring import build_agent, build_broker, build_pipeline
 
@@ -212,6 +213,35 @@ def enrol_issuer(args: argparse.Namespace) -> int:
     return 0 if transcript.tools_called else 1
 
 
+def sweep(args: argparse.Namespace) -> int:
+    """Which imitations of an enrolled domain somebody already owns.
+
+    Enrolment is the moment to ask, not verification: a squat registered this
+    morning says nothing about an invoice signed last month, and a registrar
+    round trip inside the verdict path makes every verdict depend on somebody
+    else's uptime.
+
+    The registrar's availability answer is read backwards. It exists to sell the
+    names that are free; what an issuer needs is the small set that is not.
+    """
+    settings = load_settings()
+    username, token, base_url = settings.namecom.require()
+    registrar = NameComRegistrar(NameComClient(username, token, base_url))
+    neighbours = LookalikeSweep(registrar).sweep(args.domain)
+
+    taken = [one for one in neighbours if one.alerting]
+    print(f"\n  {len(neighbours)} permutations of {args.domain} checked with name.com.\n")
+    if not taken:
+        print("  None of them is registered.\n")
+        return 0
+
+    print(f"  {len(taken)} already registered, most confusable first:\n")
+    for one in sorted(taken, key=lambda n: -n.confusability):
+        print(f"    {one.confusability:.2f}  {one.domain}")
+    print("\n  Registered is not proof of anything. It is the short list worth a look.\n")
+    return 0
+
+
 def release(args: argparse.Namespace) -> int:
     """Publish the key, if and only if the signed document says so.
 
@@ -327,6 +357,14 @@ def build_parser() -> argparse.ArgumentParser:
     let_go.add_argument("--brand", required=True)
     let_go.add_argument("--envelope", required=True)
     let_go.set_defaults(handler=release)
+
+    look = sub.add_parser(
+        "sweep",
+        parents=[common],
+        help="which lookalikes of a domain somebody already owns",
+    )
+    look.add_argument("--domain", required=True)
+    look.set_defaults(handler=sweep)
 
     check = sub.add_parser("verify", parents=[common], help="verify a document")
     check.add_argument("file")
