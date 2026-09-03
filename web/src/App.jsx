@@ -438,9 +438,11 @@ export default function App() {
         >
           {/* The overlays are positioned as percentages of their container, so
               this box hugs the image here exactly as the small one does. */}
-          <div className="viewer-sheet" onClick={(event) => event.stopPropagation()}>
-            <img src={preview} alt="The document being checked, enlarged" />
-            {shown && <Regions compared={compared} fidelity={fidelity} />}
+          <div className="viewer-scroll" onClick={(event) => event.stopPropagation()}>
+            <div className="viewer-sheet">
+              <img src={preview} alt="The document being checked, enlarged" />
+              {shown && <Regions compared={compared} fidelity={fidelity} />}
+            </div>
           </div>
           <button type="button" className="viewer-close" onClick={() => setEnlarged(false)}>
             Close

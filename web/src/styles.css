@@ -152,16 +152,24 @@ body {
 }
 .viewer::backdrop { background: rgb(20 32 30 / 78%); }
 
-.viewer-sheet {
-  position: relative;
-  background: var(--sheet);
-  box-shadow: 0 30px 80px -40px rgb(0 0 0 / 70%);
-  width: fit-content;
+/* Two boxes, not one. The scroller is allowed to be shorter than the document;
+   the sheet inside it is not, because the field overlays are positioned as
+   percentages of their container. Letting one element both scroll and host the
+   overlays made the container shorter than the image and slid every box up the
+   page. */
+.viewer-scroll {
   max-width: 100%;
   max-height: 100%;
   overflow: auto;
+  box-shadow: 0 30px 80px -40px rgb(0 0 0 / 70%);
 }
-.viewer-sheet img { display: block; max-width: 100%; height: auto; }
+
+.viewer-sheet {
+  position: relative;
+  background: var(--sheet);
+  width: fit-content;
+}
+.viewer-sheet img { display: block; width: auto; height: auto; }
 
 .viewer-close {
   position: fixed;
