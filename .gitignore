@@ -38,3 +38,6 @@ skills-lock.json
 # Frontend build output and packages
 web/node_modules/
 web/dist/
+
+# Devpost submission drafts, ours rather than the product
+submission/

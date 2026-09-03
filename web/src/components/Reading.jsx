@@ -16,6 +16,10 @@ export default function Reading({ signal }) {
   if (!Array.isArray(compared) || compared.length === 0) return null;
 
   const threshold = signal.evidence.threshold ?? 0.8;
+  // A grounding score is the same for every field it anchors, so a meter of
+  // identical bars is the expected shape rather than a fault.
+  const scores = compared.map((field) => field.confidence).filter((c) => typeof c === "number");
+  const uniform = scores.length > 1 && new Set(scores).size === 1;
   const doubted = uncertainFields(signal);
   const doubtful = compared.filter(
     (field) => field.printed !== null && doubted.has(field.field),
@@ -89,6 +93,18 @@ export default function Reading({ signal }) {
             "rather than guessed at."
           : "Every field was read cleanly, so the comparison above stands on its own."}
       </p>
+      {/* Five identical bars read as a broken meter unless the number is
+          named. The extractor reports a grounding score when the model returns
+          no token probabilities, so anything it anchors in the page scores the
+          same. Saying so is also why the shape of a value is checked and not
+          only its score. */}
+      {uniform && (
+        <p className="reading-note">
+          Every reading scores the same because the extractor is reporting whether it found the
+          value anchored in the page, not how legible the page was. That is why a value is checked
+          against the shape its field can hold as well as against this score.
+        </p>
+      )}
     </section>
   );
 }

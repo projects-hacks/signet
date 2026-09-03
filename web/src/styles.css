@@ -89,14 +89,96 @@ body {
   .checking { grid-template-columns: minmax(0, 1fr); }
 }
 
+/* The sheet hugs the image exactly, because the field overlays are positioned
+   as percentages of this box. Letterboxing the image inside a taller box would
+   slide every label off the value it points at.
+
+   Capped against the viewport so the document and the verdict are legible
+   together. A portrait invoice at the column's full width came out around 775
+   pixels tall, which pushed the verdict off a laptop screen entirely: the one
+   thing this page exists to show side by side could not be seen at once. */
 .sheet {
   position: relative;
+  width: fit-content;
+  max-width: 100%;
+  margin-inline: auto;
   background: var(--sheet);
   border: 1px solid var(--rule);
   box-shadow: 0 1px 0 var(--rule), 0 18px 40px -28px rgb(20 32 30 / 45%);
 }
 
-.sheet img { display: block; width: 100%; height: auto; }
+.sheet img {
+  display: block;
+  max-width: 100%;
+  max-height: min(72vh, 40rem);
+  width: auto;
+  height: auto;
+}
+
+/* Enlarging is a viewer affordance, so it looks like one rather than appearing
+   only on hover, which a touch screen never gets. */
+.enlarge {
+  position: absolute;
+  /* Top right, because the mark sits bottom right on every document we produce
+     and covering the proof is the one place this control must not be. */
+  right: 0.5rem;
+  top: 0.5rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-family: var(--display);
+  font-size: 0.7rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding: 0.35rem 0.6rem;
+  color: var(--ink);
+  background: color-mix(in srgb, var(--sheet) 88%, transparent);
+  border: 1px solid var(--rule-firm, var(--rule));
+  border-radius: 2px;
+  cursor: pointer;
+}
+.enlarge:hover { background: var(--sheet); }
+.enlarge:focus-visible { outline: 2px solid var(--verify); outline-offset: 2px; }
+
+.viewer {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: grid;
+  place-items: center;
+  padding: clamp(1rem, 4vw, 3rem);
+  background: rgb(20 32 30 / 78%);
+  border: none;
+}
+.viewer::backdrop { background: rgb(20 32 30 / 78%); }
+
+.viewer-sheet {
+  position: relative;
+  background: var(--sheet);
+  box-shadow: 0 30px 80px -40px rgb(0 0 0 / 70%);
+  width: fit-content;
+  max-width: 100%;
+  max-height: 100%;
+  overflow: auto;
+}
+.viewer-sheet img { display: block; max-width: 100%; height: auto; }
+
+.viewer-close {
+  position: fixed;
+  top: 1rem;
+  right: 1rem;
+  font-family: var(--display);
+  font-size: 0.75rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding: 0.5rem 0.85rem;
+  color: var(--ink);
+  background: var(--sheet);
+  border: 1px solid var(--rule);
+  border-radius: 2px;
+  cursor: pointer;
+}
+.viewer-close:focus-visible { outline: 2px solid var(--verify); outline-offset: 2px; }
 
 .sheet-empty {
   aspect-ratio: 1 / 0.72;

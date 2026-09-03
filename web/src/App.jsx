@@ -43,6 +43,7 @@ export default function App() {
      second time it has been seen before. */
   const [history, setHistory] = useState([]);
   const [resolving, setResolving] = useState(false);
+  const [enlarged, setEnlarged] = useState(false);
   const [samples, setSamples] = useState(false);
   const [fetching, setFetching] = useState(null);
   /* The checks that had answered when a run died, kept so a vendor outage
@@ -236,6 +237,9 @@ export default function App() {
             <>
               <img src={preview} alt="The document being checked" />
               {shown && <Regions compared={compared} fidelity={fidelity} />}
+              <button type="button" className="enlarge" onClick={() => setEnlarged(true)}>
+                Enlarge
+              </button>
               {shown && <Stamp verdict={shown.verdict} issuer={issuer} />}
             </>
           ) : (
@@ -422,6 +426,26 @@ export default function App() {
             <Copy text={`dig +short TXT _signet.${issuer}`} label="Copy command" />
           </div>
         </section>
+      )}
+
+      {enlarged && preview && (
+        <div
+          className="viewer"
+          role="dialog"
+          aria-modal="true"
+          aria-label="The document, enlarged"
+          onClick={() => setEnlarged(false)}
+        >
+          {/* The overlays are positioned as percentages of their container, so
+              this box hugs the image here exactly as the small one does. */}
+          <div className="viewer-sheet" onClick={(event) => event.stopPropagation()}>
+            <img src={preview} alt="The document being checked, enlarged" />
+            {shown && <Regions compared={compared} fidelity={fidelity} />}
+          </div>
+          <button type="button" className="viewer-close" onClick={() => setEnlarged(false)}>
+            Close
+          </button>
+        </div>
       )}
     </div>
   );
