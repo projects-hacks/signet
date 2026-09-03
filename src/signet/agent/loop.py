@@ -19,6 +19,7 @@ from typing import Any, Final
 
 from signet.agent.tools import SCHEMAS, Toolbox, call
 from signet.errors import AdapterError
+from signet.issue.broker import Pending
 from signet.ports.llm import ToolCallingClient
 
 MAX_TURNS: Final = 10
@@ -95,6 +96,16 @@ class Agent:
     def __init__(self, client: ToolCallingClient, toolbox: Toolbox) -> None:
         self._client = client
         self._toolbox = toolbox
+
+    @property
+    def pending(self) -> Pending | None:
+        """The enrolment now waiting on a person, if the run got that far.
+
+        Exposed because the run ends by asking somebody to sign, and whoever
+        ran it needs the envelope to finish afterwards. Leaving them to find it
+        in a vendor dashboard is not a handoff.
+        """
+        return self._toolbox.pending
 
     def run(self, request: str, max_turns: int = MAX_TURNS) -> Transcript:
         # The toolbox checks quotes against this rather than against whatever the

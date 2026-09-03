@@ -184,6 +184,19 @@ def enrol_issuer(args: argparse.Namespace) -> int:
             # own summary of what happened is not evidence of what happened.
             print(f"             {reason}")
     print(f"\n  {transcript.reply}\n")
+
+    # The run ends by asking somebody to sign, so it ends by saying what to run
+    # once they have. Anything else sends the operator to a vendor dashboard to
+    # find an identifier we already hold.
+    waiting = agent.pending
+    if waiting is not None:
+        print(f"  Waiting on a signature. Envelope {waiting.envelope_id},")
+        print(f"  authorisation reference {waiting.authorisation_hash}.")
+        print("\n  Once it is signed, publish the key with:\n")
+        print(
+            f"    signet release --domain {waiting.domain} "
+            f'--brand "{waiting.brand}" --envelope {waiting.envelope_id}\n'
+        )
     # A refusal is the system working, so it is not an error. An enrolment that
     # never reached a signature is, because nothing is waiting on a person.
     return 0 if transcript.tools_called else 1
