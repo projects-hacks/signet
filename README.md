@@ -134,9 +134,12 @@ signet enrol @assets/enrolment-request.txt
 The agent reads the domain, the brand and the signer out of that, quoting the
 line each one came from. Every quote is checked against the text rather than
 believed, and a domain that appears nowhere in the request is refused however
-confidently it is asserted. Then it resolves the brand against live search,
-generates a keypair, has the authorisation produced, reads it back to confirm
-nothing was lost, and sends it for a human signature.
+confidently it is asserted. Then it asks the live web which domain the brand
+publishes. The authorisation says whether that came from an entity record or
+merely from a page that ranked for the name, because only the first is firm
+enough to refuse somebody the domain they control. Then it generates a keypair,
+has the authorisation produced, reads it back to confirm nothing was lost, and
+sends it for a human signature.
 
 The authorisation prints each field beside the line it was read from, and says
 plainly where the text supported a second answer that was not chosen. That is
