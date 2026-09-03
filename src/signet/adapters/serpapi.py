@@ -33,7 +33,7 @@ from urllib.parse import urlsplit
 import httpx
 
 from signet.adapters import http
-from signet.core.brand import trading_name
+from signet.core.brand import trading_name, words
 from signet.errors import AdapterError
 from signet.ports.intelligence import BrandResolution, Diligence
 from signet.ports.store import RecordStore
@@ -90,16 +90,25 @@ def _named_after(domain: str, brand: str) -> bool:
 
     Compared on the registrable label only, so a directory listing the brand,
     linkedin.com/company/maersk, is not mistaken for the brand's own site.
+
+    The label has to be the brand's leading words, not merely a prefix of its
+    letters. A character prefix accepted n.com and north.com for "Northpost
+    Freight Services", because every company name starts with some letter.
+    Containment was worse still: it accepted freightservices.net, since the tail
+    of a company name says what it does rather than who it is, and half an
+    industry shares it.
     """
     label = _compact(domain.split(".")[0])
-    compacted = _compact(brand)
-    if not label or not compacted:
+    if not label:
         return False
-    # The brand has to start with the domain label, not merely contain it.
-    # Containment accepted freightservices.net for "Northpost Freight Services",
-    # because the tail of a company name is usually what it does rather than who
-    # it is, and half the industry shares it.
-    return compacted.startswith(label)
+    leading = ""
+    for word in words(brand):
+        leading += word
+        if leading == label:
+            return True
+        if len(leading) > len(label):
+            return False
+    return False
 
 
 class SerpApiResolver:
@@ -128,10 +137,14 @@ class SerpApiResolver:
         graph = payload.get("knowledge_graph")
         sources: list[str] = []
         domain: str | None = None
+        # Only an entity record is firm enough to contradict somebody. What the
+        # organic results turn up is recorded and shown, never used to accuse.
+        authoritative = False
         if isinstance(graph, dict):
             website = graph.get("website")
             if isinstance(website, str):
                 domain = registrable(website)
+                authoritative = domain is not None
                 sources.append(website)
         # A search result is a page that mentioned the words, not an assertion
         # that a brand owns a domain, and taking the first blue link as an
@@ -155,7 +168,12 @@ class SerpApiResolver:
             candidate = registrable(link)
             if domain is None and candidate and _named_after(candidate, brand):
                 domain = candidate
-        return BrandResolution(brand=brand, canonical_domain=domain, sources=tuple(sources))
+        return BrandResolution(
+            brand=brand,
+            canonical_domain=domain,
+            sources=tuple(sources),
+            authoritative=authoritative,
+        )
 
     def diligence(self, domain: str, brand: str) -> Diligence:
         payload = self._search(f'"{brand}" {domain}')
@@ -195,12 +213,24 @@ class SerpApiResolver:
         if cached is not None:
             return cached
 
-        response = self._client.get(
-            self._base_url,
-            params={"engine": "google", "q": query, "api_key": self._api_key, "hl": "en"},
-        )
+        try:
+            response = self._client.get(
+                self._base_url,
+                params={"engine": "google", "q": query, "api_key": self._api_key, "hl": "en"},
+            )
+        except httpx.HTTPError as exc:
+            # Every other adapter wraps this and this one did not, so a search
+            # that merely timed out escaped the pipeline's guard, which catches
+            # AdapterError, and failed the whole verification instead of
+            # reporting one unknown check.
+            raise AdapterError(f"SerpApi could not be reached: {exc}") from exc
         if response.status_code == 401:
             raise AdapterError("SerpApi rejected the key.")
+        if response.status_code == 429:
+            # Named rather than left as a status code: a reader seeing this
+            # check report nothing deserves to know it is a spent quota rather
+            # than a broken deployment.
+            raise AdapterError("SerpApi has no searches left on this plan.")
         if not response.is_success:
             raise AdapterError(f"SerpApi returned {response.status_code}: {response.text[:200]}")
         try:

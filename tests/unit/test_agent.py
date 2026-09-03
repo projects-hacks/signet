@@ -44,7 +44,14 @@ class StubResolver:
 
     def resolve_brand(self, brand: str) -> BrandResolution:
         self.lookups.append(brand)
-        return BrandResolution(brand=brand, canonical_domain=self.published, sources=("a-source",))
+        # Authoritative: these tests are about what happens when the web
+        # states who a brand is, not when a page merely ranked for the name.
+        return BrandResolution(
+            brand=brand,
+            canonical_domain=self.published,
+            sources=("a-source",),
+            authoritative=self.published is not None,
+        )
 
     def diligence(self, domain: str, brand: str) -> Diligence:
         return Diligence(domain, True, self.published, (), ("a-source",))

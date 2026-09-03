@@ -74,6 +74,13 @@ class CounterpartyCheck:
         # alone.
         enrolled = issuer is not None and issuer.enrolled and same_brand(issuer.brand, brand)
 
+        # Ordinary results are allowed to fail a document here, where an
+        # enrolled issuer signing for its own brand is already exempt above: a
+        # document this can reach was never going to certify, and saying which
+        # domain the brand publishes is the only account anyone gets of a
+        # company that never enrolled. Enrolment is the opposite case and gates
+        # on the stronger evidence, because refusing a signer costs them the
+        # thing they came for.
         if published and published != domain and not enrolled:
             return Signal(
                 NAME,

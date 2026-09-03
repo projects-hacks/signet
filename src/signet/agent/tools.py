@@ -118,6 +118,7 @@ class Toolbox:
         self.resolved = {
             "brand": brand,
             "published_domain": resolution.canonical_domain,
+            "authoritative": resolution.authoritative,
             "sources": list(resolution.sources),
         }
         return self.resolved
@@ -178,7 +179,10 @@ class Toolbox:
                 f"is for {brand!r}. Look up the brand being enrolled."
             )
 
-        published = self.resolved["published_domain"]
+        # A page that ranked for the brand's name is not firm enough to refuse
+        # an enrolment. Treated as if it were, an unrelated northpost.org
+        # blocked a signer enrolling the domain they actually control.
+        published = self.resolved["published_domain"] if self.resolved["authoritative"] else None
         if published and published != domain:
             # The exact case both models walked straight past.
             reason = (
@@ -246,8 +250,17 @@ class Toolbox:
         assert self.resolved is not None
         published = self.resolved["published_domain"]
         sources = self.resolved["sources"]
-        if published:
-            found = f"Live search reports {self.resolved['brand']} publishing {published}."
+        brand = self.resolved["brand"]
+        if published and self.resolved["authoritative"]:
+            found = f"Live search reports {brand} publishing {published}."
+        elif published:
+            # Named, but only as a page that ranked for the name. The signer is
+            # told what was seen and how weak it is, rather than either half.
+            found = (
+                f"Live search turned up {published} under this name, in ordinary "
+                f"results rather than as a record of who {brand} is. Correct it "
+                "below if that is not you."
+            )
         else:
             found = (
                 f"Live search returned no published domain for {self.resolved['brand']}, "

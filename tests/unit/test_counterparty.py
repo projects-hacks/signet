@@ -42,12 +42,22 @@ def context(issuer: str, brand: str | None = "Northpost") -> VerificationContext
 
 
 class StubResolver:
-    def __init__(self, canonical: str | None, diligence: Diligence) -> None:
+    def __init__(
+        self, canonical: str | None, diligence: Diligence, authoritative: bool = True
+    ) -> None:
         self._canonical = canonical
         self._diligence = diligence
+        # Authoritative by default: most of these tests are about what happens
+        # when the web states who a brand is. The weaker case has its own test.
+        self._authoritative = authoritative
 
     def resolve_brand(self, brand: str) -> BrandResolution:
-        return BrandResolution(brand=brand, canonical_domain=self._canonical, sources=("s",))
+        return BrandResolution(
+            brand=brand,
+            canonical_domain=self._canonical,
+            sources=("s",),
+            authoritative=self._authoritative,
+        )
 
     def diligence(self, domain: str, brand: str) -> Diligence:
         return self._diligence
@@ -298,3 +308,13 @@ def test_being_enrolled_for_one_brand_does_not_exempt_claiming_another() -> None
 
     assert signal.outcome is Outcome.FAIL
     assert "maersk.com" in signal.detail
+
+
+def test_ordinary_results_are_enough_to_flag_an_unenrolled_domain() -> None:
+    """A document this can reach was never going to certify, and naming the
+    domain the brand publishes is the only account anyone gets of a company
+    that never enrolled. Enrolment gates on stronger evidence; this does not."""
+    check = CounterpartyCheck(
+        StubResolver("northpost.dev", clean("x"), authoritative=False), FakeRecordStore()
+    )
+    assert check.run(context("northpost-invoices.dev")).outcome is Outcome.FAIL
