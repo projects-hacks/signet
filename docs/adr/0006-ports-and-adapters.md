@@ -39,4 +39,4 @@ first written in `issue/`, where it needed the QR adapter; the rule refused the
 import, and the code moved to `adapters/page.py` where it belonged.
 
 The cost is one indirection per capability and a composition root that has to
-know everything. That root is `wiring.py`, and it is the only module that does.
+know everything. That root is `wiring.py`. The entry points the rule waives, `cli.py` and `api/`, wire their own narrow paths the same way; nothing else does.

@@ -37,7 +37,7 @@ from signet.ports.intelligence import EntityResolver
 from signet.ports.signature_gateway import SignatureGateway
 from signet.ports.store import RecordStore
 from signet.verify.pipeline import VerificationPipeline
-from signet.verify.registry import default_checks
+from signet.verify.registry import default_checks, unavailable
 
 
 def extractor_for(settings: Settings) -> DocumentExtractor | None:
@@ -117,15 +117,18 @@ def build_agent(settings: Settings, store_path: Path) -> Agent:
 
 def build_pipeline(settings: Settings, store_path: Path) -> VerificationPipeline:
     store = record_store(settings, store_path)
+    extractor = extractor_for(settings)
+    entities = resolver_for(settings, store)
     return VerificationPipeline(
         checks=default_checks(
             resolver=DohResolver(settings.resolvers),
             store=store,
             registrations=RdapRegistrationData(),
             today=date.today(),
-            extractor=extractor_for(settings),
-            entities=resolver_for(settings, store),
+            extractor=extractor,
+            entities=entities,
         ),
         store=store,
         mark_reader=ImageMarkReader(),
+        not_running=unavailable(extractor=extractor, entities=entities),
     )

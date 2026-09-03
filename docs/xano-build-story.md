@@ -57,9 +57,9 @@ disappears.
 | `signet_submission` | the fingerprint ledger | duplicate detection, which is meaningless per process |
 | `signet_cache` | evidence with expiry | the live search budget, a few hundred a month shared across every process |
 | `signet_audit` | append only | every verdict, and every time a person overrode a machine reading |
-| `signet_review` | adjudication state | the human in the loop path |
+| `signet_review` | provisioned, not yet read | adjudication state lives in the cache and the audit trail today |
 
-Eight endpoints under one API group, plus a shared function
+Seven endpoints under one API group, plus a shared function
 `require_api_key` that every one of them calls first. The function stack is
 committed in `xano/` so it can be read rather than described.
 
@@ -124,11 +124,11 @@ incompatible with the FastMCP version it depends on. Finding those meant
 reading their client code, their portal bundle, and their responses, rather than
 their documentation.
 
-**The Xano backend itself.** Seven tables, eight endpoints and a shared auth
+**The Xano backend itself.** Five Signet tables, seven endpoints and a shared auth
 function, written as XanoScript and pushed from the command line, in an
 afternoon. The auth bug above is the kind of thing that would have shipped.
 
-**Measuring instead of assuming.** We chose the model by running four candidates
+**Measuring instead of assuming.** We chose the model by running three credible candidates, then every plausible tool caller on the provider
 against our own tool schemas rather than a leaderboard, and found that two
 capable models, told to hurry, would enrol a lookalike domain while reporting
 the check as passed. That measurement is why every gate in this system is a

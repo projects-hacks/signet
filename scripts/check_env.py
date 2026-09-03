@@ -154,7 +154,10 @@ def main() -> int:
     load_dotenv(Path(".env"))
     settings = load_settings()
 
-    print(f"fixtures: {'on, no live calls will be made' if settings.fixtures else 'off'}\n")
+    # Precise rather than reassuring: fixtures stop the vendor probes below, and
+    # DNS and the registry are public lookups that answer either way.
+    state = "on, so nothing below is probed" if settings.fixtures else "off"
+    print(f"fixtures: {state}\n")
     print("configuration")
     services = (
         settings.xano,

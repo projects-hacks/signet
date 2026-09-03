@@ -68,8 +68,9 @@ make test
 ```
 
 `make test` runs entirely offline against in-memory fakes and needs no
-credentials. If it ever needs the network, a vendor has leaked into the domain,
-and a lint rule fails the build when that happens.
+credentials. It is not asked to behave: the suite blocks outbound sockets, so a
+test that reaches for a vendor fails naming the rule rather than quietly making
+the build depend on somebody else's uptime.
 
 To see the web interface:
 
@@ -95,8 +96,9 @@ for this project; a real issuer's key never serves an endpoint.
 
 Seven checks, each reporting its own answer and its own evidence, in the order
 they run. Two of them need vendors: fidelity needs the extraction service and
-counterparty needs live search, so a build without those credentials runs the
-other five and says so rather than pretending.
+counterparty needs live search. A build without those credentials runs the other
+five and names the two it is not running, on the report and on `/api/health`,
+because a report listing only what ran reads as a complete report.
 
 | Check | Question |
 | --- | --- |
@@ -162,7 +164,7 @@ has the transcripts.
 | [name.com](https://www.name.com) | publishes the key on the issuer's own domain, and answers the sweep for lookalike registrations |
 | [Nutrient](https://www.nutrient.io) | reads the page as it actually arrived, with a confidence and a bounding box per field |
 | [SerpApi](https://serpapi.com) | asks the live web which domain a brand publishes, which is the only way to catch impersonation of a company nobody enrolled |
-| [Foxit](https://www.foxit.com) | assembles the authorisation and reads it back, then puts it in front of a person to sign |
+| [Foxit](https://www.foxit.com) | reads the executed authorisation back as text through their MCP server, and puts it in front of a person to sign |
 | [Xano](https://www.xano.com) | issuers, the submissions ledger, the evidence cache and the audit trail |
 
 Built for the [DevNetwork API, Cloud and AI Hackathon 2026](https://api-cloud-ai-hackathon-2026.devpost.com/).
@@ -250,9 +252,10 @@ graph LR
 ```
 
 Blue never touches orange: the pure domain reads vendors only through the grey
-checks, which speak to them through ports. Two advisory checks, domain age and
-counterparty, are omitted above because they inform a reader and never decide
-a verdict.
+checks, which speak to them through ports. Domain age is omitted above because
+it informs a reader and never decides a verdict. Counterparty is omitted for
+space: it is advisory about adverse coverage, but it does fail a document when
+the web publishes a different domain for the brand than the one that signed.
 
 [docs/architecture.md](docs/architecture.md) has the full set: the layer
 diagram, the verification sequence, the verdict rules, the doubtful-page path

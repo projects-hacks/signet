@@ -322,9 +322,11 @@ xano/                  the function stacks, committed so they can be read
 tests/                 unit, golden verdict suite, offline replay, fakes
 ```
 
-Two files repay reading first. `core/verdict.py` is forty lines and contains the
-entire decision. `wiring.py` is the only module that knows which adapter serves
-which port, so it is the map of every external dependency in one screen.
+Two files repay reading first. `core/verdict.py` is a hundred lines and contains
+the entire decision. `wiring.py` is the composition root for the pipeline, the
+broker and the agent, so it is the map of nearly every external dependency in
+one screen; `cli.py` wires the publish path the same way, which is why the
+import rule waives the entry points rather than the domain.
 
 ## Decisions written down
 

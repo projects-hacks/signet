@@ -8,7 +8,7 @@ Nothing that runs functions on a ten second timeout can host the second.
 |---|---|---|
 | The site | Vercel | static, and the URL is the one a judge sees |
 | The site, again | Xano static hosting | already working, and the Xano track is about their platform |
-| The verifier | Hugging Face Spaces | Docker, no card, no cold start worth the name |
+| The verifier | Render | Docker, no card. It sleeps when idle, so the first request after a quiet spell takes about a minute |
 
 ## The site
 
@@ -19,7 +19,7 @@ One environment variable, and it is read at **build** time rather than run time,
 so changing it means redeploying:
 
 ```
-VITE_API_BASE=https://<your-space>.hf.space
+VITE_API_BASE=https://signet-q89e.onrender.com
 ```
 
 Leave it empty and the page expects the API on its own origin, which is right

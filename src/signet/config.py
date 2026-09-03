@@ -46,7 +46,7 @@ class Credentials:
         if not self.configured:
             raise ConfigError(
                 f"{self.name} is not configured. Set it in .env, or run with "
-                f"{FIXTURES_ENV}=1 to use recorded responses."
+                f"{FIXTURES_ENV}=1 to skip the checks that need it."
             )
         return self.values
 

@@ -8,6 +8,13 @@ The kits below are for testing away from the hosted page: one folder per
 person, four invoices per folder, every document carrying its own signature
 over its own numbers.
 
+**Type the brand in first.** The checker asks who the document claims to be
+from. Put `Northpost Freight Services` there and leave it for all four; on the
+command line it is `--brand "Northpost Freight Services"`. Without a claimed
+brand there is no name for a domain to be compared against, and the lookalike
+below correctly certifies, because nothing on it is forged and nothing is being
+imitated. The hosted page fills this in for you.
+
 | File | What it is | What the verifier should say |
 | --- | --- | --- |
 | `1-genuine.png` | An ordinary invoice, signed by the company that issued it | CERTIFIED |
@@ -17,7 +24,8 @@ over its own numbers.
 
 Check them against the hosted page, where every check runs. A local build
 without extraction credentials runs five of the seven checks and cannot catch
-the doctored page; it will tell you so rather than pretend.
+the doctored page. It names the two it is not running at the foot of the report
+rather than pretending it asked.
 
 Two rules. Take a kit nobody else has taken: the ledger records every document
 ever verified anywhere, so a genuine invoice is new to it exactly once, which

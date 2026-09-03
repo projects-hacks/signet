@@ -242,6 +242,9 @@ def verify(args: argparse.Namespace) -> int:
     print()
     for signal in decision.signals:
         print(f"  [{_SYMBOL[signal.outcome]}]  {signal.name:12} {signal.detail}")
+    # A report listing only what ran reads as a complete report.
+    for name in pipeline.not_running:
+        print(f"  [ - ]  {name:12} not run: this build has no credentials for it.")
     print(f"\n  {_HEADLINE[decision.verdict]}")
     print(f"  {decision.reason}\n")
     return 0 if decision.verdict is not Verdict.FLAGGED else 2

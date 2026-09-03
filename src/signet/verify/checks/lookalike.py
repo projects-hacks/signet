@@ -16,6 +16,10 @@ change what an invoice from last month is.
 
 An enrolled domain resembles itself perfectly, so being the enrolled domain is
 the pass rather than the failure.
+
+Every signal carries what it compared, including the ones that pass and the ones
+that could not look. A reader deciding whether to trust a verdict needs to see
+the pair that was weighed, not only the sentence it produced.
 """
 
 from __future__ import annotations
@@ -37,15 +41,23 @@ class LookalikeCheck:
 
     def run(self, context: VerificationContext) -> Signal:
         if context.mark is None:
-            return Signal(NAME, Outcome.UNKNOWN, "This document carries no mark.", "signet")
+            return Signal(
+                NAME,
+                Outcome.UNKNOWN,
+                "This document carries no mark.",
+                "signet",
+                {"domain": None, "claimedBrand": context.claimed_brand},
+            )
 
         domain = context.mark.payload.issuer
+        evidence: dict[str, object] = {"domain": domain, "claimedBrand": context.claimed_brand}
         if context.claimed_brand is None:
             return Signal(
                 NAME,
                 Outcome.UNKNOWN,
                 "This document names no brand, so there is nothing for it to imitate.",
                 "registry",
+                evidence,
             )
 
         # Confusability alone cannot say which of a pair is the imitation, and a
@@ -59,13 +71,17 @@ class LookalikeCheck:
                 Outcome.UNKNOWN,
                 f"No enrolled domain to compare against for {context.claimed_brand}.",
                 "registry",
+                evidence,
             )
+
+        evidence["comparedAgainst"] = claimed
         if claimed == domain:
             return Signal(
                 NAME,
                 Outcome.PASS,
                 f"{domain} is the domain {context.claimed_brand} signs from.",
                 "registry",
+                {**evidence, "confusable": False},
             )
         if is_confusable(domain, claimed):
             return Signal(
@@ -74,12 +90,14 @@ class LookalikeCheck:
                 f"{domain} reads as {claimed}, which is where {context.claimed_brand} "
                 f"actually signs from, but it is not {claimed}.",
                 "registry",
+                {**evidence, "confusable": True},
             )
         return Signal(
             NAME,
             Outcome.PASS,
             f"{domain} does not resemble {claimed}.",
             "registry",
+            {**evidence, "confusable": False},
         )
 
     def _brand_domain(self, brand: str) -> str | None:

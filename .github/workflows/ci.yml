@@ -1,9 +1,8 @@
 # Everything a reviewer would otherwise have to take on trust.
 #
-# The suite runs with no credentials at all. Fixtures are the default and every
-# adapter serves recorded responses until SIGNET_FIXTURES is turned off, so a
-# fork with no secrets gets the same green tick as we do. A build that only
-# passes for people holding the keys proves nothing about the code.
+# The suite runs with no credentials at all, and is blocked from opening a
+# socket, so a fork with no secrets gets the same green tick as we do. A build
+# that only passes for people holding the keys proves nothing about the code.
 #
 # Secret scanning runs over the full history rather than the working tree,
 # because the repository is public and a key removed in a later commit is still

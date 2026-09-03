@@ -45,3 +45,21 @@ def default_checks(
     # its write back when a deciding check could not reach its source.
     checks.append(DuplicateCheck(store))
     return tuple(checks)
+
+
+def unavailable(
+    extractor: DocumentExtractor | None = None,
+    entities: EntityResolver | None = None,
+) -> tuple[str, ...]:
+    """The checks this build cannot run, and therefore is not asking.
+
+    A report listing only what ran reads as a complete report. Naming the
+    absences is the difference between a build that says what it cannot do and
+    one that quietly asks fewer questions.
+    """
+    missing: list[str] = []
+    if extractor is None:
+        missing.append("fidelity")
+    if entities is None:
+        missing.append("counterparty")
+    return tuple(missing)

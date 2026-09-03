@@ -42,10 +42,12 @@ class VerificationPipeline:
         checks: Sequence[Check],
         store: RecordStore,
         mark_reader: MarkReader | None = None,
+        not_running: Sequence[str] = (),
     ) -> None:
         self._checks = tuple(checks)
         self._store = store
         self._mark_reader = mark_reader
+        self._not_running = tuple(not_running)
 
     @property
     def check_names(self) -> tuple[str, ...]:
@@ -55,6 +57,16 @@ class VerificationPipeline:
         a spinner, and the shape is knowable at the start.
         """
         return tuple(check.name for check in self._checks)
+
+    @property
+    def not_running(self) -> tuple[str, ...]:
+        """Checks this build has no credentials for, and is therefore not asking.
+
+        A report listing only what ran reads as a complete report. Naming the
+        absences is the difference between a build that says what it cannot do
+        and one that quietly asks fewer questions.
+        """
+        return self._not_running
 
     def run(self, request: VerificationRequest) -> Decision:
         decision: Decision | None = None

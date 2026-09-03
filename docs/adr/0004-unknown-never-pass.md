@@ -37,7 +37,7 @@ The verdict degrades honestly under outage: lower, never higher, and the
 outage is named in the signal a reader sees.
 
 Advisory checks get room to exist. Domain age and counterparty coverage can
-say "worth a look" without the power to flag, because a name collision with a
+say "worth a look" without adverse coverage alone being able to flag, because a name collision with a
 fraud story is not evidence against a document.
 
 Nothing in the system converts absence of evidence into evidence, in either

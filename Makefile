@@ -11,6 +11,7 @@ setup:
 	uv sync
 	uv run pre-commit install
 	uv run pre-commit install --hook-type commit-msg
+	uv run pre-commit install --hook-type pre-push
 
 check:
 	uv run ruff check src tests scripts

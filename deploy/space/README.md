@@ -26,6 +26,7 @@ document somebody uploaded, never a forged one.
 | `POST /api/verify` | one document, one verdict, as JSON |
 | `POST /api/examine` | the same run, streamed as each check answers |
 | `POST /api/adjudicate` | a person answering what the extractor could not read |
+| `GET /api/sample/{kind}` | a demo document, signed at the moment it is asked for |
 
 ## Configuration
 

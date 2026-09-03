@@ -164,6 +164,9 @@ def create_app(
                 "fixtures": resolved.fixtures,
                 "extraction": resolved.nutrient.configured and not resolved.fixtures,
                 "samples": minter.available,
+                # Named rather than merely absent, so a caller can see which
+                # questions this deployment is not asking.
+                "notRunning": list(pipeline.not_running),
             }
         )
 

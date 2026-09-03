@@ -7,8 +7,9 @@ If this page did not work, the product's claim would not survive contact with
 anyone who checked it, so the commands are the ones that were actually run
 rather than the ones that ought to work.
 
-You need `dig`, `openssl`, and a base32 decoder. On Linux that is `base32 -d`
-from coreutils. macOS does not ship one, so the `python3` line below stands in.
+You need `dig`, `openssl`, `xxd`, and a base32 decoder. On Linux that is
+`base32 -d` from coreutils. macOS does not ship one, so the `python3` line below
+stands in.
 
 ## What you are checking
 
