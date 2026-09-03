@@ -1,5 +1,11 @@
 import { useEffect, useRef, useState } from "react";
-import { adjudicate, checkDocument, sampleDocument, verifierHealth } from "./api.js";
+import {
+  adjudicate,
+  checkDocument,
+  renderedPage,
+  sampleDocument,
+  verifierHealth,
+} from "./api.js";
 import { checkLabel, uncertainFields } from "./labels.js";
 import Adjudicate from "./components/Adjudicate.jsx";
 import Copy from "./components/Copy.jsx";
@@ -15,14 +21,23 @@ import Working from "./components/Working.jsx";
    test: the interesting part is watching the checks explain themselves. */
 const SAMPLES = [
   { kind: "genuine", label: "A genuine invoice", note: "should certify" },
-  { kind: "doctored", label: "One with the account changed", note: "caught by the page" },
-  { kind: "lookalike", label: "One from a lookalike domain", note: "caught by identity" },
+  {
+    kind: "doctored",
+    label: "One with the account changed",
+    note: "caught by the page",
+  },
+  {
+    kind: "lookalike",
+    label: "One from a lookalike domain",
+    note: "caught by identity",
+  },
 ];
 
 const SAMPLE_BRAND = "Northpost Freight Services";
 
 const READING = {
-  certified: "Signed by the domain this brand signs from, and the page matches what was signed.",
+  certified:
+    "Signed by the domain this brand signs from, and the page matches what was signed.",
   flagged: "Something about this document contradicts itself.",
   unsigned:
     "This sender has not published a key, so there is nothing to check against. " +
@@ -44,6 +59,9 @@ export default function App() {
   const [history, setHistory] = useState([]);
   const [resolving, setResolving] = useState(false);
   const [enlarged, setEnlarged] = useState(false);
+  /* A PDF has no preview until the verifier hands back the page it rasterised:
+     "shown" once it arrives, "rendering" until then, "failed" if it never does. */
+  const [pageState, setPageState] = useState("shown");
   const [samples, setSamples] = useState(false);
   const [fetching, setFetching] = useState(null);
   /* The checks that had answered when a run died, kept so a vendor outage
@@ -94,6 +112,22 @@ export default function App() {
     minted.current.push(url);
     setFile(next);
     setPreview(url);
+    // The browser cannot show a PDF here, but the verifier already rasterises
+    // one to read the mark off it, so ask for that page and show it instead.
+    // The field overlays are percentages of the page, so they then land on a
+    // PDF exactly as they do on a photograph.
+    setPageState(next.type === "application/pdf" ? "rendering" : "shown");
+    if (next.type === "application/pdf") {
+      renderedPage(next).then((rendered) => {
+        if (!rendered) {
+          setPageState("failed");
+          return;
+        }
+        minted.current.push(rendered);
+        setPreview((current) => (current === url ? rendered : current));
+        setPageState("shown");
+      });
+    }
     setResult(null);
     setLive(null);
     setStopped(null);
@@ -135,10 +169,13 @@ export default function App() {
           // The frame arrives first and fills in. The verdict is never
           // anticipated: a stamp that appears before the answer would be the
           // one optimistic thing this product must not do.
-          if (message.event === "started") setLive({ checks: message.checks, signals: [] });
+          if (message.event === "started")
+            setLive({ checks: message.checks, signals: [] });
           if (message.event === "signal") {
             setLive((current) =>
-              current ? { ...current, signals: [...current.signals, message] } : current,
+              current
+                ? { ...current, signals: [...current.signals, message] }
+                : current,
             );
           }
         },
@@ -177,15 +214,21 @@ export default function App() {
 
   const shown = result;
   const fidelity = shown?.signals.find((signal) => signal.name === "fidelity");
-  const signature = shown?.signals.find((signal) => signal.name === "signature");
-  const counterparty = shown?.signals.find((signal) => signal.name === "counterparty");
+  const signature = shown?.signals.find(
+    (signal) => signal.name === "signature",
+  );
+  const counterparty = shown?.signals.find(
+    (signal) => signal.name === "counterparty",
+  );
   const issuer = signature?.evidence?.query?.replace(/^_signet\./, "");
   const compared = fidelity?.evidence?.compared ?? [];
   const threshold = fidelity?.evidence?.threshold ?? 0.8;
   const doubted = uncertainFields(fidelity);
   const doubtful =
     fidelity?.outcome === "unknown"
-      ? compared.filter((entry) => entry.printed !== null && doubted.has(entry.field))
+      ? compared.filter(
+          (entry) => entry.printed !== null && doubted.has(entry.field),
+        )
       : [];
 
   async function resolve(field, reading) {
@@ -223,21 +266,29 @@ export default function App() {
 
       <section className="checking">
         <div className="sheet" data-busy={String(Boolean(live))}>
-          {preview && file?.type === "application/pdf" ? (
+          {preview &&
+          file?.type === "application/pdf" &&
+          pageState !== "shown" ? (
             <div className="sheet-empty">
               <span className="label">PDF document</span>
               <p style={{ margin: 0 }} className="mono">
                 {file.name}
               </p>
               <p style={{ margin: 0, color: "var(--muted)" }}>
-                The verdict below covers it. The page overlay is drawn for images only.
+                {pageState === "rendering"
+                  ? "Rendering the first page."
+                  : "This page could not be rendered. The verdict below still covers the document."}
               </p>
             </div>
           ) : preview ? (
             <>
               <img src={preview} alt="The document being checked" />
               {shown && <Regions compared={compared} fidelity={fidelity} />}
-              <button type="button" className="enlarge" onClick={() => setEnlarged(true)}>
+              <button
+                type="button"
+                className="enlarge"
+                onClick={() => setEnlarged(true)}
+              >
                 Enlarge
               </button>
               {shown && <Stamp verdict={shown.verdict} issuer={issuer} />}
@@ -246,7 +297,8 @@ export default function App() {
             <div className="sheet-empty">
               <span className="label">No document yet</span>
               <p style={{ margin: 0 }}>
-                An invoice, a receipt, a statement. Anything that arrived and asks to be paid.
+                An invoice, a receipt, a statement. Anything that arrived and
+                asks to be paid.
               </p>
             </div>
           )}
@@ -258,7 +310,8 @@ export default function App() {
               <p className="label">The result</p>
               <p className="finding-reason">{shown.reason}</p>
               <p style={{ margin: 0, color: "var(--muted)" }}>
-                {shown.verdict === "certified" && fidelity?.outcome === "unknown"
+                {shown.verdict === "certified" &&
+                fidelity?.outcome === "unknown"
                   ? "Signed by the domain this brand signs from. One reading on the page " +
                     "could not be settled by the machine, so confirm it below."
                   : READING[shown.verdict]}
@@ -276,7 +329,8 @@ export default function App() {
             <>
               <p className="label">Check a document</p>
               <p className="finding-reason">
-                Who really sent this, and does the page still say what they signed?
+                Who really sent this, and does the page still say what they
+                signed?
               </p>
             </>
           )}
@@ -304,8 +358,12 @@ export default function App() {
               take(event.dataTransfer.files?.[0]);
             }}
           >
-            <span className="label">{file ? "Document" : "Choose or drop a document"}</span>
-            <span className="mono">{file ? file.name : "PNG, JPEG or PDF"}</span>
+            <span className="label">
+              {file ? "Document" : "Choose or drop a document"}
+            </span>
+            <span className="mono">
+              {file ? file.name : "PNG, JPEG or PDF"}
+            </span>
           </button>
 
           {samples && !file && !shown && (
@@ -319,12 +377,17 @@ export default function App() {
                   disabled={Boolean(fetching)}
                   onClick={() => takeSample(sample.kind)}
                 >
-                  <span>{fetching === sample.kind ? "Signing a fresh one" : sample.label}</span>
+                  <span>
+                    {fetching === sample.kind
+                      ? "Signing a fresh one"
+                      : sample.label}
+                  </span>
                   <span className="mono sample-note">{sample.note}</span>
                 </button>
               ))}
               <p className="sample-fine">
-                Each one is signed the moment you ask, so it has never been seen before.
+                Each one is signed the moment you ask, so it has never been seen
+                before.
               </p>
             </div>
           )}
@@ -339,7 +402,11 @@ export default function App() {
             />
           </label>
 
-          <button type="submit" className="run" disabled={!file || Boolean(live)}>
+          <button
+            type="submit"
+            className="run"
+            disabled={!file || Boolean(live)}
+          >
             <span>{live ? "Checking" : "Check this document"}</span>
             <span className="mono run-note">
               {live
@@ -376,14 +443,17 @@ export default function App() {
         <section className="adjudicate">
           <p className="label">Your reading was applied</p>
           <p className="adjudicate-note">
-            The comparison now uses what you read off the page, and the verdict above
-            follows from it.
+            The comparison now uses what you read off the page, and the verdict
+            above follows from it.
           </p>
         </section>
       )}
 
       {(shown || live || stopped) && (
-        <Working signals={shown?.signals ?? live?.signals ?? stopped ?? []} pending={waiting} />
+        <Working
+          signals={shown?.signals ?? live?.signals ?? stopped ?? []}
+          pending={waiting}
+        />
       )}
       {stopped && !shown && !live && (
         <p className="mono failure" role="alert" style={{ maxWidth: "42rem" }}>
@@ -402,7 +472,10 @@ export default function App() {
                   onClick={() => revisit(entry)}
                   data-current={String(entry.id === shown?.runId)}
                 >
-                  <span className="verdict-dot" data-verdict={entry.decision.verdict} />
+                  <span
+                    className="verdict-dot"
+                    data-verdict={entry.decision.verdict}
+                  />
                   <span className="mono">{entry.name}</span>
                   <span className="label" data-verdict={entry.decision.verdict}>
                     {entry.decision.verdict}
@@ -418,12 +491,16 @@ export default function App() {
         <section className="selfcheck">
           <p className="label">Check it yourself</p>
           <p>
-            None of the above needs to be taken on trust. The key is a public DNS record, so the
-            same answer is available to anyone with a terminal and no account here.
+            None of the above needs to be taken on trust. The key is a public
+            DNS record, so the same answer is available to anyone with a
+            terminal and no account here.
           </p>
           <div className="command-row">
             <code className="command">dig +short TXT _signet.{issuer}</code>
-            <Copy text={`dig +short TXT _signet.${issuer}`} label="Copy command" />
+            <Copy
+              text={`dig +short TXT _signet.${issuer}`}
+              label="Copy command"
+            />
           </div>
         </section>
       )}
@@ -438,13 +515,20 @@ export default function App() {
         >
           {/* The overlays are positioned as percentages of their container, so
               this box hugs the image here exactly as the small one does. */}
-          <div className="viewer-scroll" onClick={(event) => event.stopPropagation()}>
+          <div
+            className="viewer-scroll"
+            onClick={(event) => event.stopPropagation()}
+          >
             <div className="viewer-sheet">
               <img src={preview} alt="The document being checked, enlarged" />
               {shown && <Regions compared={compared} fidelity={fidelity} />}
             </div>
           </div>
-          <button type="button" className="viewer-close" onClick={() => setEnlarged(false)}>
+          <button
+            type="button"
+            className="viewer-close"
+            onClick={() => setEnlarged(false)}
+          >
             Close
           </button>
         </div>

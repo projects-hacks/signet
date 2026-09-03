@@ -85,6 +85,25 @@ export async function adjudicate(runId, field, reading) {
 }
 
 /* Whether this deployment can hand out demo documents at all. */
+/** The first page of a PDF, rendered by the verifier so it can be shown.
+ *
+ *  The server already rasterises every PDF to read the mark off it. Asking for
+ *  that same image back means the field overlays, which are positioned as
+ *  percentages of the page, work on a PDF exactly as they do on a photograph.
+ *  Returns null when the page cannot be rendered, and the caller falls back to
+ *  the placeholder rather than failing the check. */
+export async function renderedPage(file, signal) {
+  const body = new FormData();
+  body.append("file", file);
+  try {
+    const response = await fetch(`${BASE}/api/page`, { method: "POST", body, signal });
+    if (!response.ok) return null;
+    return URL.createObjectURL(await response.blob());
+  } catch {
+    return null;
+  }
+}
+
 export async function verifierHealth() {
   try {
     const response = await fetch(`${BASE}/api/health`);

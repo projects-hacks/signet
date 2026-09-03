@@ -27,12 +27,13 @@ from starlette.routing import Mount, Route
 from starlette.staticfiles import StaticFiles
 
 from signet.adapters.local_store import DEFAULT_PATH
+from signet.adapters.page import rasterise
 from signet.adapters.records import record_store
 from signet.adapters.samples import SampleError, SampleMinter
 from signet.config import Settings, load_env_file, load_settings
 from signet.core.shape import well_formed
 from signet.core.verdict import Decision, Outcome, Signal, decide
-from signet.errors import SignetError
+from signet.errors import AdapterError, SignetError
 from signet.verify.adjudication import NotAdjudicable, apply_reading
 from signet.verify.pipeline import VerificationRequest
 from signet.wiring import build_pipeline
@@ -191,6 +192,34 @@ def create_app(
             },
         )
 
+    async def page(request: Request) -> Response:
+        """The first page of a PDF, as an image the browser can show.
+
+        We already rasterise every PDF on the way in, because that is how the
+        mark is read off it. Throwing that image away left the reader looking at
+        a placeholder saying the overlay is drawn for images only, on a document
+        we had just rendered. The field boxes are positioned as percentages of
+        the page, so handing back the same raster makes them work on a PDF with
+        no change to how they are drawn.
+        """
+        form = await request.form()
+        upload = form.get("file")
+        if not hasattr(upload, "read") or not hasattr(upload, "filename"):
+            return JSONResponse({"error": "Attach a document as the file field."}, status_code=400)
+
+        content = await upload.read()  # type: ignore[union-attr]
+        if not content:
+            return JSONResponse({"error": "That file is empty."}, status_code=400)
+        if len(content) > MAX_UPLOAD_BYTES:
+            return JSONResponse({"error": "That file is too large."}, status_code=413)
+        if _media_type(str(upload.filename)) != "application/pdf":  # type: ignore[union-attr]
+            return JSONResponse({"error": "This renders PDFs only."}, status_code=415)
+
+        try:
+            return Response(rasterise(content), media_type="image/png")
+        except AdapterError as exc:
+            return JSONResponse({"error": str(exc)}, status_code=422)
+
     async def verify(request: Request) -> JSONResponse:
         form = await request.form()
         upload = form.get("file")
@@ -347,6 +376,7 @@ def create_app(
         Route("/api/health", health, methods=["GET"]),
         Route("/api/sample/{kind}", sample, methods=["GET"]),
         Route("/api/verify", verify, methods=["POST"]),
+        Route("/api/page", page, methods=["POST"]),
         Route("/api/examine", examine, methods=["POST"]),
         Route("/api/adjudicate", adjudicate, methods=["POST"]),
     ]

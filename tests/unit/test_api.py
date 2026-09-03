@@ -4,9 +4,11 @@ from __future__ import annotations
 
 import json
 from dataclasses import replace
+from io import BytesIO
 from pathlib import Path
 
 import pytest
+from PIL import Image
 from starlette.testclient import TestClient
 
 from signet.api.app import MAX_UPLOAD_BYTES, create_app
@@ -252,3 +254,31 @@ def test_a_check_that_could_not_run_carries_no_evidence(client: TestClient) -> N
         if signal["detail"].startswith("Could not complete"):
             assert signal["evidence"] == {}
             assert signal["source"], "the reason it failed belongs in the source"
+
+
+def test_a_pdf_is_returned_as_a_page_the_browser_can_show(client: TestClient) -> None:
+    """A browser will not render a PDF inside our layout, so the server does it."""
+    page = BytesIO()
+    Image.new("RGB", (120, 160), "white").save(page, format="PDF")
+
+    response = client.post("/api/page", files={"file": ("invoice.pdf", page.getvalue())})
+
+    assert response.status_code == 200
+    assert response.headers["content-type"] == "image/png"
+    with Image.open(BytesIO(response.content)) as rendered:
+        assert rendered.width > 0
+
+
+def test_only_a_pdf_needs_rendering(client: TestClient) -> None:
+    """An image already shows itself, so asking us to render one is a mistake."""
+    response = client.post("/api/page", files={"file": ("invoice.png", b"\x89PNG")})
+
+    assert response.status_code == 415
+
+
+def test_bytes_that_are_not_a_pdf_do_not_reach_the_client_as_a_traceback() -> None:
+    response = TestClient(create_app(settings()), raise_server_exceptions=False).post(
+        "/api/page", files={"file": ("invoice.pdf", b"not a pdf at all")}
+    )
+
+    assert response.status_code == 422

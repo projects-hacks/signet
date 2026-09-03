@@ -18,7 +18,7 @@ def cited(value: str, confidence: float, page: int = 0) -> dict[str, Any]:
     return {
         "value": value,
         "meta": {
-            "bbox": {"x": 300.0, "y": 247.0, "width": 305.0, "height": 33.0},
+            "bbox": {"x": 300.0, "y": 247.0, "width": 240.0, "height": 33.0},
             "confidence": confidence,
             "pageIndex": page,
             "pageNumber": page + 1,
@@ -73,13 +73,37 @@ def test_a_box_is_a_fraction_of_the_page() -> None:
 
 
 def test_a_box_we_cannot_place_is_dropped_rather_than_guessed() -> None:
-    """Nutrient reports a PDF in points and nothing here reads PDF page size.
+    """Placing a box needs the page it was measured on. These bytes are not one.
 
     A missing box costs a reviewer a highlight. A wrong one points confidently
     at the wrong part of the document, which is worse than not pointing.
     """
     field = extract(responder({"iban": cited("GB29", 0.95)})).by_name()["iban"]
     assert field.box is None
+
+
+def test_a_box_beyond_the_first_page_is_dropped() -> None:
+    """Only the first page is rendered, so only its boxes have anything to sit on."""
+    page = BytesIO()
+    Image.new("RGB", (600, 800), "white").save(page, format="PNG")
+    extraction = NutrientExtractor(
+        client(responder({"iban": cited("GB29", 0.95, page=2)}))
+    ).extract(page.getvalue(), "image/png")
+
+    field = extraction.by_name()["iban"]
+    assert field.page == 2
+    assert field.box is None
+
+
+def test_a_box_running_off_the_page_is_dropped() -> None:
+    """A box outside the page means the units were not the ones we measured in."""
+    page = BytesIO()
+    Image.new("RGB", (100, 800), "white").save(page, format="PNG")
+    extraction = NutrientExtractor(client(responder({"iban": cited("GB29", 0.95)}))).extract(
+        page.getvalue(), "image/png"
+    )
+
+    assert extraction.by_name()["iban"].box is None
 
 
 def test_confidence_is_not_rescaled() -> None:
@@ -147,3 +171,22 @@ def test_a_non_json_body_is_an_adapter_error() -> None:
 
     with pytest.raises(AdapterError, match="non-JSON"):
         extract(handler)
+
+
+def test_a_pdf_box_is_placed_in_the_pixels_nutrient_measured_it_in() -> None:
+    """Nutrient rasterises a PDF before reading it and reports those pixels.
+
+    The page is 612 by 792 points, which at their render density is 1700 by
+    2200 pixels, so the cited x of 300 sits a little under a fifth across. Read
+    as points it would land off the page entirely.
+    """
+    page = BytesIO()
+    Image.new("RGB", (1224, 1584), "white").save(page, format="PDF", resolution=144)
+    extraction = NutrientExtractor(client(responder({"iban": cited("GB29", 0.95)}))).extract(
+        page.getvalue(), "application/pdf"
+    )
+
+    box = extraction.by_name()["iban"].box
+    assert box is not None
+    assert box.left == pytest.approx(300.0 / 1700.0, abs=0.002)
+    assert box.top == pytest.approx(247.0 / 2200.0, abs=0.002)

@@ -33,6 +33,7 @@ from io import BytesIO
 from typing import Any, Final
 
 import httpx
+import pypdfium2
 from PIL import Image
 
 from signet.adapters import http
@@ -57,32 +58,54 @@ EXTRACTION_SCHEMA: Final[Mapping[str, str]] = {
     "bic": "The BIC or SWIFT code of the receiving bank",
 }
 
+# Observed: Nutrient renders a PDF at this density before reading it, and
+# reports boxes in the resulting pixels.
+PDF_RENDER_DPI: Final = 200.0
+POINTS_PER_INCH: Final = 72.0
+
 
 def _page_size(content: bytes, media_type: str) -> tuple[float, float] | None:
-    """The page in the same units Nutrient reports boxes in, when we can tell.
+    """The first page, in the same units Nutrient reports boxes in.
 
-    Only raster pages are measured. Nutrient reports a PDF in points and this
-    codebase has no PDF reader, so rather than convert with a guessed page size
-    the box is dropped. A missing box costs a reviewer a highlight; a wrong one
-    points confidently at the wrong part of the document.
+    Nutrient reports a raster page in pixels and a PDF in points, so each is
+    measured with the reader that speaks its units. Only the first page is
+    measured, because only the first page is ever shown: pages within one PDF
+    may differ in size, and scaling a later page by this one would point
+    confidently at the wrong part of the document.
     """
-    if not media_type.startswith("image/"):
-        return None
-    try:
-        with Image.open(BytesIO(content)) as page:
-            return float(page.width), float(page.height)
-    except (OSError, ValueError):
-        return None
+    if media_type.startswith("image/"):
+        try:
+            with Image.open(BytesIO(content)) as page:
+                return float(page.width), float(page.height)
+        except (OSError, ValueError):
+            return None
+    if media_type == "application/pdf":
+        try:
+            width, height = pypdfium2.PdfDocument(content)[0].get_size()
+        except Exception:  # pypdfium2 raises its own hierarchy
+            return None
+        # A PDF measures in points, but Nutrient rasterises one before reading
+        # it and reports boxes in the pixels of that render, so the page has to
+        # be given in the same pixels. The scale is observed rather than
+        # documented, which is why _box refuses anything landing off the page.
+        scale = PDF_RENDER_DPI / POINTS_PER_INCH
+        return float(width) * scale, float(height) * scale
+    return None
 
 
-def _box(raw: Any, page: tuple[float, float] | None) -> BoundingBox | None:
-    if not isinstance(raw, dict) or page is None:
+def _box(raw: Any, page: tuple[float, float] | None, index: int) -> BoundingBox | None:
+    """A box only for the page the reader is looking at.
+
+    Boxes are drawn over the rendered first page, so a box carrying any other
+    page index has nothing to sit on and is dropped rather than misplaced.
+    """
+    if not isinstance(raw, dict) or page is None or index != 0:
         return None
     width, height = page
     if width <= 0 or height <= 0:
         return None
     try:
-        return BoundingBox(
+        box = BoundingBox(
             left=float(raw["x"]) / width,
             top=float(raw["y"]) / height,
             width=float(raw["width"]) / width,
@@ -90,6 +113,12 @@ def _box(raw: Any, page: tuple[float, float] | None) -> BoundingBox | None:
         )
     except (KeyError, TypeError, ValueError, ZeroDivisionError):
         return None
+    # A box off the page means the units were not what we measured the page in.
+    # Drop it: an absent highlight costs a reviewer a glance, a misplaced one
+    # points confidently at the wrong line.
+    if box.left < 0 or box.top < 0 or box.left + box.width > 1 or box.top + box.height > 1:
+        return None
+    return box
 
 
 def _confidence(raw: Any) -> float:
@@ -182,13 +211,14 @@ class NutrientExtractor:
             citation = metadata.get(name)
             citation = citation if isinstance(citation, dict) else {}
             index = citation.get("pageIndex")
+            page = index if isinstance(index, int) else 0
             fields.append(
                 ExtractedField(
                     name=str(name),
                     value=str(value),
                     confidence=_confidence(citation.get("confidence")),
-                    page=index if isinstance(index, int) else 0,
-                    box=_box(citation.get("bbox"), page_size),
+                    page=page,
+                    box=_box(citation.get("bbox"), page_size, page),
                 )
             )
         return fields
